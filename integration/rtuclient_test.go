@@ -12,20 +12,22 @@ import (
 	"go.bug.st/serial"
 
 	"github.com/lumberbarons/modbus"
-)
-
-const (
-	rtuDevice = "/dev/pts/6"
+	"github.com/lumberbarons/modbus/internal/testutil"
 )
 
 func TestRTUClient(t *testing.T) {
-	// Diagslave does not support broadcast id.
+	cleanup, rtuDevice := testutil.StartRTUSimulator(t, testutil.WithSlaveID(17))
+	defer cleanup()
+
 	handler := modbus.NewRTUClientHandler(rtuDevice)
 	handler.SlaveID = 17
 	ClientTestAll(t, modbus.NewClient(handler))
 }
 
 func TestRTUClientAdvancedUsage(t *testing.T) {
+	cleanup, rtuDevice := testutil.StartRTUSimulator(t, testutil.WithSlaveID(11))
+	defer cleanup()
+
 	handler := modbus.NewRTUClientHandler(rtuDevice)
 	handler.BaudRate = 19200
 	handler.DataBits = 8
