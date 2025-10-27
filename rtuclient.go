@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"go.bug.st/serial"
 )
 
 const (
@@ -28,6 +30,10 @@ type RTUClientHandler struct {
 func NewRTUClientHandler(address string) *RTUClientHandler {
 	handler := &RTUClientHandler{}
 	handler.Address = address
+	handler.BaudRate = 19200
+	handler.DataBits = 8
+	handler.StopBits = serial.OneStopBit
+	handler.Parity = serial.EvenParity
 	handler.Timeout = serialTimeout
 	handler.IdleTimeout = serialIdleTimeout
 	return handler
