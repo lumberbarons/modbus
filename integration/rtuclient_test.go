@@ -9,6 +9,8 @@ import (
 	"os"
 	"testing"
 
+	"go.bug.st/serial"
+
 	"github.com/lumberbarons/modbus"
 )
 
@@ -27,8 +29,8 @@ func TestRTUClientAdvancedUsage(t *testing.T) {
 	handler := modbus.NewRTUClientHandler(rtuDevice)
 	handler.BaudRate = 19200
 	handler.DataBits = 8
-	handler.Parity = "E"
-	handler.StopBits = 1
+	handler.Parity = serial.EvenParity
+	handler.StopBits = serial.OneStopBit
 	handler.SlaveID = 11
 	handler.Logger = log.New(os.Stdout, "rtu: ", log.LstdFlags)
 	err := handler.Connect()

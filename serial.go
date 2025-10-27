@@ -5,12 +5,11 @@
 package modbus
 
 import (
-	"io"
 	"log"
 	"sync"
 	"time"
 
-	"github.com/goburrow/serial"
+	"go.bug.st/serial"
 )
 
 const (
@@ -22,14 +21,18 @@ const (
 // serialPort has configuration and I/O controller.
 type serialPort struct {
 	// Serial port configuration.
-	serial.Config
-
+	Address     string
+	BaudRate    int
+	DataBits    int
+	StopBits    serial.StopBits
+	Parity      serial.Parity
+	Timeout     time.Duration
 	Logger      *log.Logger
 	IdleTimeout time.Duration
 
 	mu sync.Mutex
 	// port is platform-dependent data structure for serial port.
-	port         io.ReadWriteCloser
+	port         serial.Port
 	lastActivity time.Time
 	closeTimer   *time.Timer
 }
@@ -44,9 +47,22 @@ func (mb *serialPort) Connect() (err error) {
 // connect connects to the serial port if it is not connected. Caller must hold the mutex.
 func (mb *serialPort) connect() error {
 	if mb.port == nil {
-		port, err := serial.Open(&mb.Config)
+		mode := &serial.Mode{
+			BaudRate: mb.BaudRate,
+			DataBits: mb.DataBits,
+			StopBits: mb.StopBits,
+			Parity:   mb.Parity,
+		}
+		port, err := serial.Open(mb.Address, mode)
 		if err != nil {
 			return err
+		}
+		if mb.Timeout > 0 {
+			err = port.SetReadTimeout(mb.Timeout)
+			if err != nil {
+				port.Close()
+				return err
+			}
 		}
 		mb.port = port
 	}
