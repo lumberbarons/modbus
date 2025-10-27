@@ -12,20 +12,22 @@ import (
 	"go.bug.st/serial"
 
 	"github.com/lumberbarons/modbus"
-)
-
-const (
-	asciiDevice = "/dev/pts/6"
+	"github.com/lumberbarons/modbus/internal/testutil"
 )
 
 func TestASCIIClient(t *testing.T) {
-	// Diagslave does not support broadcast id.
+	cleanup, asciiDevice := testutil.StartASCIISimulator(t, testutil.WithASCIISlaveID(17))
+	defer cleanup()
+
 	handler := modbus.NewASCIIClientHandler(asciiDevice)
 	handler.SlaveID = 17
 	ClientTestAll(t, modbus.NewClient(handler))
 }
 
 func TestASCIIClientAdvancedUsage(t *testing.T) {
+	cleanup, asciiDevice := testutil.StartASCIISimulator(t, testutil.WithASCIISlaveID(12))
+	defer cleanup()
+
 	handler := modbus.NewASCIIClientHandler(asciiDevice)
 	handler.BaudRate = 19200
 	handler.DataBits = 8

@@ -100,3 +100,78 @@ func StartRTUSimulator(t *testing.T, opts ...RTUSimulatorOption) (cleanup func()
 
 	return cleanup, devicePath
 }
+
+// ASCIISimulatorOption configures an ASCII simulator.
+type ASCIISimulatorOption func(*asciiSimulatorConfig)
+
+type asciiSimulatorConfig struct {
+	slaveID  byte
+	baudRate int
+	config   *simulator.DataStoreConfig
+}
+
+// WithASCIISlaveID sets the slave ID for the ASCII simulator.
+func WithASCIISlaveID(id byte) ASCIISimulatorOption {
+	return func(c *asciiSimulatorConfig) {
+		c.slaveID = id
+	}
+}
+
+// WithASCIIBaudRate sets the baud rate for the ASCII simulator.
+func WithASCIIBaudRate(rate int) ASCIISimulatorOption {
+	return func(c *asciiSimulatorConfig) {
+		c.baudRate = rate
+	}
+}
+
+// WithASCIIDataStoreConfig sets initial data values for the ASCII simulator.
+func WithASCIIDataStoreConfig(config *simulator.DataStoreConfig) ASCIISimulatorOption {
+	return func(c *asciiSimulatorConfig) {
+		c.config = config
+	}
+}
+
+// StartASCIISimulator creates and starts an ASCII Modbus simulator for testing.
+// It returns a cleanup function that should be deferred, and the device path
+// that clients should use to connect.
+func StartASCIISimulator(t *testing.T, opts ...ASCIISimulatorOption) (cleanup func(), devicePath string) {
+	t.Helper()
+
+	// Apply options
+	config := &asciiSimulatorConfig{
+		slaveID:  1,
+		baudRate: 19200,
+	}
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	// Create data store
+	ds := simulator.NewDataStore(config.config)
+
+	// Create ASCII server
+	server, err := simulator.NewASCIIServer(ds, &simulator.ASCIIServerConfig{
+		SlaveID:  config.slaveID,
+		BaudRate: config.baudRate,
+	})
+	if err != nil {
+		t.Fatalf("failed to create ASCII simulator: %v", err)
+	}
+
+	// Start the server
+	if err := server.Start(); err != nil {
+		t.Fatalf("failed to start ASCII simulator: %v", err)
+	}
+
+	devicePath = server.ClientDevicePath()
+	t.Logf("ASCII simulator started on %s (slave ID: %d)", devicePath, config.slaveID)
+
+	cleanup = func() {
+		if err := server.Stop(); err != nil {
+			t.Errorf("failed to stop ASCII simulator: %v", err)
+		}
+		t.Logf("ASCII simulator stopped")
+	}
+
+	return cleanup, devicePath
+}

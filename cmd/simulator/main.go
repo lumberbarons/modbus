@@ -62,7 +62,15 @@ func main() {
 		devicePath = rtuServer.ClientDevicePath()
 
 	case "ascii":
-		log.Fatalf("ASCII mode not yet implemented")
+		asciiServer, err := simulator.NewASCIIServer(ds, &simulator.ASCIIServerConfig{
+			SlaveID:  byte(*slaveID),
+			BaudRate: *baudRate,
+		})
+		if err != nil {
+			log.Fatalf("failed to create ASCII server: %v", err)
+		}
+		server = asciiServer
+		devicePath = asciiServer.ClientDevicePath()
 
 	case "tcp":
 		log.Fatalf("TCP mode not yet implemented")
