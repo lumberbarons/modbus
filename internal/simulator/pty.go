@@ -10,12 +10,15 @@ package simulator
 import (
 	"fmt"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/creack/pty"
 )
 
 // PtyPair represents a pseudo-terminal pair with master and slave sides.
 type PtyPair struct {
+	mu         sync.Mutex
 	Master     *os.File
 	Slave      *os.File
 	MasterPath string
@@ -24,6 +27,9 @@ type PtyPair struct {
 
 // Close closes both master and slave file descriptors.
 func (p *PtyPair) Close() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	var err error
 	if p.Master != nil {
 		if e := p.Master.Close(); e != nil && err == nil {
@@ -38,6 +44,54 @@ func (p *PtyPair) Close() error {
 		p.Slave = nil
 	}
 	return err
+}
+
+// Read safely reads from the master file descriptor with proper locking.
+func (p *PtyPair) Read(b []byte) (int, error) {
+	p.mu.Lock()
+	master := p.Master
+	p.mu.Unlock()
+
+	if master == nil {
+		return 0, os.ErrClosed
+	}
+	return master.Read(b)
+}
+
+// Write safely writes to the master file descriptor with proper locking.
+func (p *PtyPair) Write(b []byte) (int, error) {
+	p.mu.Lock()
+	master := p.Master
+	p.mu.Unlock()
+
+	if master == nil {
+		return 0, os.ErrClosed
+	}
+	return master.Write(b)
+}
+
+// SetReadDeadline safely sets the read deadline with proper locking.
+func (p *PtyPair) SetReadDeadline(t time.Time) error {
+	p.mu.Lock()
+	master := p.Master
+	p.mu.Unlock()
+
+	if master == nil {
+		return os.ErrClosed
+	}
+	return master.SetReadDeadline(t)
+}
+
+// Sync safely syncs the master file descriptor with proper locking.
+func (p *PtyPair) Sync() error {
+	p.mu.Lock()
+	master := p.Master
+	p.mu.Unlock()
+
+	if master == nil {
+		return os.ErrClosed
+	}
+	return master.Sync()
 }
 
 // CreatePtyPair creates a new pseudo-terminal pair natively.

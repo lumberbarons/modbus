@@ -130,7 +130,7 @@ func (s *RTUServer) serve() {
 // handleRequest reads a single request frame and sends a response.
 func (s *RTUServer) handleRequest() error {
 	// Set read timeout to allow checking stopChan periodically
-	if err := s.pty.Master.SetReadDeadline(time.Now().Add(500 * time.Millisecond)); err != nil {
+	if err := s.pty.SetReadDeadline(time.Now().Add(500 * time.Millisecond)); err != nil {
 		// Ignore deadline errors - not critical
 		s.logger.Printf("warning: failed to set read deadline: %v", err)
 	}
@@ -182,14 +182,14 @@ func (s *RTUServer) handleRequest() error {
 
 	// Send the response
 	s.logger.Printf("sending: % x", responseADU)
-	n, err := s.pty.Master.Write(responseADU)
+	n, err := s.pty.Write(responseADU)
 	if err != nil {
 		return fmt.Errorf("failed to write response: %w", err)
 	}
 	s.logger.Printf("wrote %d bytes", n)
 
 	// Sync to ensure data is flushed
-	if err := s.pty.Master.Sync(); err != nil {
+	if err := s.pty.Sync(); err != nil {
 		s.logger.Printf("warning: failed to sync: %v", err)
 	}
 
@@ -201,7 +201,7 @@ func (s *RTUServer) readFrame() ([]byte, error) {
 	var buffer [rtuMaxSize]byte
 
 	// Read minimum frame size first
-	n, err := io.ReadAtLeast(s.pty.Master, buffer[:], rtuMinSize)
+	n, err := io.ReadAtLeast(s.pty, buffer[:], rtuMinSize)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (s *RTUServer) readFrame() ([]byte, error) {
 
 	// Read remaining bytes if needed
 	if expectedLength > n && expectedLength <= rtuMaxSize {
-		n2, err := io.ReadFull(s.pty.Master, buffer[n:expectedLength])
+		n2, err := io.ReadFull(s.pty, buffer[n:expectedLength])
 		if err != nil {
 			return nil, err
 		}

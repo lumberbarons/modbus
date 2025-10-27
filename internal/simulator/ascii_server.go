@@ -134,7 +134,7 @@ func (s *ASCIIServer) serve() {
 // handleRequest reads a single request frame and sends a response.
 func (s *ASCIIServer) handleRequest() error {
 	// Set read timeout to allow checking stopChan periodically
-	if err := s.pty.Master.SetReadDeadline(time.Now().Add(500 * time.Millisecond)); err != nil {
+	if err := s.pty.SetReadDeadline(time.Now().Add(500 * time.Millisecond)); err != nil {
 		// Ignore deadline errors - not critical (ptys don't support deadlines)
 		s.logger.Printf("warning: failed to set read deadline: %v", err)
 	}
@@ -185,7 +185,7 @@ func (s *ASCIIServer) handleRequest() error {
 	s.logger.Printf("sending: %s", strings.TrimSpace(string(responseADU)))
 
 	// Send the response
-	n, err := s.pty.Master.Write(responseADU)
+	n, err := s.pty.Write(responseADU)
 	if err != nil {
 		return fmt.Errorf("failed to write response: %w", err)
 	}
@@ -202,7 +202,7 @@ func (s *ASCIIServer) readFrame() ([]byte, error) {
 
 	// Read until we find the start character ':'
 	for {
-		n, err := s.pty.Master.Read(tmpBuf)
+		n, err := s.pty.Read(tmpBuf)
 		if err != nil {
 			return nil, err
 		}
@@ -214,7 +214,7 @@ func (s *ASCIIServer) readFrame() ([]byte, error) {
 
 	// Read until we find CRLF
 	for {
-		n, err := s.pty.Master.Read(tmpBuf)
+		n, err := s.pty.Read(tmpBuf)
 		if err != nil {
 			return nil, err
 		}
