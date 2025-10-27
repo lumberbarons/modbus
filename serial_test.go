@@ -30,7 +30,11 @@ func TestSerialCloseIdle(t *testing.T) {
 	s.startCloseTimer()
 
 	time.Sleep(150 * time.Millisecond)
-	if !port.closed || s.port != nil {
+	s.mu.Lock()
+	closed := port.closed
+	portNil := s.port == nil
+	s.mu.Unlock()
+	if !closed || !portNil {
 		t.Fatalf("serial port is not closed when inactivity: %+v", port)
 	}
 }
