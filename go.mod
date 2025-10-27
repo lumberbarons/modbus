@@ -1,5 +1,5 @@
 module github.com/lumberbarons/modbus
 
-go 1.24.5
+go 1.22
 
 require github.com/goburrow/serial v0.1.0

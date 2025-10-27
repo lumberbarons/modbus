@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go: ['1.24', '1.25']
+        go: ['1.22', '1.23', '1.24', '1.25']
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -42,7 +42,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.25'
+        go-version: '1.22'
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v8
@@ -60,7 +60,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.25'
+        go-version: '1.22'
 
     - name: Build
       run: go build -v ./...
