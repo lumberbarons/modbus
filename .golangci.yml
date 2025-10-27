@@ -1,38 +1,47 @@
+version: "2"
 run:
-  timeout: 5m
-  tests: true
   modules-download-mode: readonly
-
+  tests: true
 linters:
   enable:
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
+    - gocritic
+    - misspell
+    - revive
+  settings:
+    errcheck:
+      check-blank: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - errcheck
+          - gocritic
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
     - gofmt
     - goimports
-    - misspell
-    - gocritic
-    - revive
-    - exportloopref
-
-linters-settings:
-  errcheck:
-    check-blank: true
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
-  goimports:
-    local-prefixes: github.com/lumberbarons/modbus
-
-issues:
-  exclude-rules:
-    # Exclude some linters from running on tests files.
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gocritic
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/lumberbarons/modbus
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

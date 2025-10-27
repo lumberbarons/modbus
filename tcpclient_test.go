@@ -31,8 +31,8 @@ func TestTCPEncoding(t *testing.T) {
 
 func TestTCPDecoding(t *testing.T) {
 	packager := tcpPackager{}
-	packager.transactionId = 1
-	packager.SlaveId = 17
+	packager.transactionID = 1
+	packager.SlaveID = 17
 	adu := []byte{0, 1, 0, 0, 0, 6, 17, 3, 0, 120, 0, 3}
 
 	pdu, err := packager.Decode(adu)
@@ -40,7 +40,7 @@ func TestTCPDecoding(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if 3 != pdu.FunctionCode {
+	if pdu.FunctionCode != 3 {
 		t.Fatalf("Function code: expected %v, actual %v", 3, pdu.FunctionCode)
 	}
 	expected := []byte{0, 120, 0, 3}
@@ -90,7 +90,7 @@ func TestTCPTransporter(t *testing.T) {
 
 func BenchmarkTCPEncoder(b *testing.B) {
 	encoder := tcpPackager{
-		SlaveId: 10,
+		SlaveID: 10,
 	}
 	pdu := ProtocolDataUnit{
 		FunctionCode: 1,
@@ -106,7 +106,7 @@ func BenchmarkTCPEncoder(b *testing.B) {
 
 func BenchmarkTCPDecoder(b *testing.B) {
 	decoder := tcpPackager{
-		SlaveId: 10,
+		SlaveID: 10,
 	}
 	adu := []byte{0, 1, 0, 0, 0, 6, 17, 3, 0, 120, 0, 3}
 	for i := 0; i < b.N; i++ {

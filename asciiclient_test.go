@@ -11,7 +11,7 @@ import (
 
 func TestASCIIEncoding(t *testing.T) {
 	encoder := asciiPackager{}
-	encoder.SlaveId = 17
+	encoder.SlaveID = 17
 
 	pdu := ProtocolDataUnit{}
 	pdu.FunctionCode = 3
@@ -29,7 +29,7 @@ func TestASCIIEncoding(t *testing.T) {
 
 func TestASCIIDecoding(t *testing.T) {
 	decoder := asciiPackager{}
-	decoder.SlaveId = 247
+	decoder.SlaveID = 247
 	adu := []byte(":F7031389000A60\r\n")
 
 	pdu, err := decoder.Decode(adu)
@@ -37,7 +37,7 @@ func TestASCIIDecoding(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if 3 != pdu.FunctionCode {
+	if pdu.FunctionCode != 3 {
 		t.Fatalf("Function code: expected %v, actual %v", 15, pdu.FunctionCode)
 	}
 	expected := []byte{0x13, 0x89, 0, 0x0A}
@@ -48,7 +48,7 @@ func TestASCIIDecoding(t *testing.T) {
 
 func BenchmarkASCIIEncoder(b *testing.B) {
 	encoder := asciiPackager{
-		SlaveId: 10,
+		SlaveID: 10,
 	}
 	pdu := ProtocolDataUnit{
 		FunctionCode: 1,
@@ -64,7 +64,7 @@ func BenchmarkASCIIEncoder(b *testing.B) {
 
 func BenchmarkASCIIDecoder(b *testing.B) {
 	decoder := asciiPackager{
-		SlaveId: 10,
+		SlaveID: 10,
 	}
 	adu := []byte(":F7031389000A60\r\n")
 	for i := 0; i < b.N; i++ {

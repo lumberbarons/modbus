@@ -41,6 +41,8 @@ const (
 )
 
 // ModbusError implements error interface.
+//
+//nolint:revive // Keep ModbusError name for backward compatibility
 type ModbusError struct {
 	FunctionCode  byte
 	ExceptionCode byte

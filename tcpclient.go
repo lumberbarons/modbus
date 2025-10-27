@@ -50,31 +50,32 @@ func TCPClient(address string) Client {
 // tcpPackager implements Packager interface.
 type tcpPackager struct {
 	// For synchronization between messages of server & client
-	transactionId uint32
+	transactionID uint32
 	// Broadcast address is 0
-	SlaveId byte
+	SlaveID byte
 }
 
 // Encode adds modbus application protocol header:
-//  Transaction identifier: 2 bytes
-//  Protocol identifier: 2 bytes
-//  Length: 2 bytes
-//  Unit identifier: 1 byte
-//  Function code: 1 byte
-//  Data: n bytes
+//
+//	Transaction identifier: 2 bytes
+//	Protocol identifier: 2 bytes
+//	Length: 2 bytes
+//	Unit identifier: 1 byte
+//	Function code: 1 byte
+//	Data: n bytes
 func (mb *tcpPackager) Encode(pdu *ProtocolDataUnit) (adu []byte, err error) {
 	adu = make([]byte, tcpHeaderSize+1+len(pdu.Data))
 
 	// Transaction identifier
-	transactionId := atomic.AddUint32(&mb.transactionId, 1)
-	binary.BigEndian.PutUint16(adu, uint16(transactionId))
+	transactionID := atomic.AddUint32(&mb.transactionID, 1)
+	binary.BigEndian.PutUint16(adu, uint16(transactionID))
 	// Protocol identifier
 	binary.BigEndian.PutUint16(adu[2:], tcpProtocolIdentifier)
-	// Length = sizeof(SlaveId) + sizeof(FunctionCode) + Data
+	// Length
 	length := uint16(1 + 1 + len(pdu.Data))
 	binary.BigEndian.PutUint16(adu[4:], length)
 	// Unit identifier
-	adu[6] = mb.SlaveId
+	adu[6] = mb.SlaveID
 
 	// PDU
 	adu[tcpHeaderSize] = pdu.FunctionCode
@@ -83,7 +84,7 @@ func (mb *tcpPackager) Encode(pdu *ProtocolDataUnit) (adu []byte, err error) {
 }
 
 // Verify confirms transaction, protocol and unit id.
-func (mb *tcpPackager) Verify(aduRequest []byte, aduResponse []byte) (err error) {
+func (mb *tcpPackager) Verify(aduRequest, aduResponse []byte) (err error) {
 	// Transaction id
 	responseVal := binary.BigEndian.Uint16(aduResponse)
 	requestVal := binary.BigEndian.Uint16(aduRequest)
@@ -107,10 +108,11 @@ func (mb *tcpPackager) Verify(aduRequest []byte, aduResponse []byte) (err error)
 }
 
 // Decode extracts PDU from TCP frame:
-//  Transaction identifier: 2 bytes
-//  Protocol identifier: 2 bytes
-//  Length: 2 bytes
-//  Unit identifier: 1 byte
+//
+//	Transaction identifier: 2 bytes
+//	Protocol identifier: 2 bytes
+//	Length: 2 bytes
+//	Unit identifier: 1 byte
 func (mb *tcpPackager) Decode(adu []byte) (pdu *ProtocolDataUnit, err error) {
 	// Read length value in the header
 	length := binary.BigEndian.Uint16(adu[4:])
@@ -275,7 +277,7 @@ func (mb *tcpTransporter) closeIdle() {
 	if mb.IdleTimeout <= 0 {
 		return
 	}
-	idle := time.Now().Sub(mb.lastActivity)
+	idle := time.Since(mb.lastActivity)
 	if idle >= mb.IdleTimeout {
 		mb.logf("modbus: closing connection due to idle timeout: %v", idle)
 		mb.close()
