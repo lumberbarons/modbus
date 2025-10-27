@@ -10,12 +10,6 @@ import (
 	"github.com/lumberbarons/modbus/internal/simulator"
 )
 
-// RTUSimulator wraps an RTU server for testing.
-type RTUSimulator struct {
-	server *simulator.RTUServer
-	t      *testing.T
-}
-
 // RTUSimulatorOption configures an RTU simulator.
 type RTUSimulatorOption func(*rtuSimulatorConfig)
 
@@ -174,4 +168,69 @@ func StartASCIISimulator(t *testing.T, opts ...ASCIISimulatorOption) (cleanup fu
 	}
 
 	return cleanup, devicePath
+}
+
+// TCPSimulatorOption configures a TCP simulator.
+type TCPSimulatorOption func(*tcpSimulatorConfig)
+
+type tcpSimulatorConfig struct {
+	address string
+	config  *simulator.DataStoreConfig
+}
+
+// WithTCPAddress sets the TCP address for the simulator.
+func WithTCPAddress(address string) TCPSimulatorOption {
+	return func(c *tcpSimulatorConfig) {
+		c.address = address
+	}
+}
+
+// WithTCPDataStoreConfig sets initial data values for the TCP simulator.
+func WithTCPDataStoreConfig(config *simulator.DataStoreConfig) TCPSimulatorOption {
+	return func(c *tcpSimulatorConfig) {
+		c.config = config
+	}
+}
+
+// StartTCPSimulator creates and starts a TCP Modbus simulator for testing.
+// It returns a cleanup function that should be deferred, and the address
+// that clients should use to connect.
+func StartTCPSimulator(t *testing.T, opts ...TCPSimulatorOption) (cleanup func(), address string) {
+	t.Helper()
+
+	// Apply options
+	config := &tcpSimulatorConfig{
+		address: "localhost:0", // Use port 0 to let OS assign a free port
+	}
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	// Create data store
+	ds := simulator.NewDataStore(config.config)
+
+	// Create TCP server
+	server, err := simulator.NewTCPServer(ds, &simulator.TCPServerConfig{
+		Address: config.address,
+	})
+	if err != nil {
+		t.Fatalf("failed to create TCP simulator: %v", err)
+	}
+
+	// Start the server
+	if err := server.Start(); err != nil {
+		t.Fatalf("failed to start TCP simulator: %v", err)
+	}
+
+	address = server.Address()
+	t.Logf("TCP simulator started on %s", address)
+
+	cleanup = func() {
+		if err := server.Stop(); err != nil {
+			t.Errorf("failed to stop TCP simulator: %v", err)
+		}
+		t.Logf("TCP simulator stopped")
+	}
+
+	return cleanup, address
 }

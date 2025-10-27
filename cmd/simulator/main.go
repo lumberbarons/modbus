@@ -21,6 +21,7 @@ func main() {
 	mode := flag.String("mode", "rtu", "Modbus mode: rtu, ascii, or tcp")
 	slaveID := flag.Int("slave-id", 1, "Slave ID for serial modes (1-247)")
 	baudRate := flag.Int("baud", 19200, "Baud rate for serial modes")
+	tcpAddress := flag.String("addr", "localhost:5020", "TCP address for tcp mode (host:port)")
 	configFile := flag.String("config", "", "JSON config file for initial data values")
 	flag.Parse()
 
@@ -47,7 +48,7 @@ func main() {
 		Start() error
 		Stop() error
 	}
-	var devicePath string
+	var connectionInfo string
 
 	switch *mode {
 	case "rtu":
@@ -59,7 +60,7 @@ func main() {
 			log.Fatalf("failed to create RTU server: %v", err)
 		}
 		server = rtuServer
-		devicePath = rtuServer.ClientDevicePath()
+		connectionInfo = fmt.Sprintf("Client device path: %s", rtuServer.ClientDevicePath())
 
 	case "ascii":
 		asciiServer, err := simulator.NewASCIIServer(ds, &simulator.ASCIIServerConfig{
@@ -70,10 +71,17 @@ func main() {
 			log.Fatalf("failed to create ASCII server: %v", err)
 		}
 		server = asciiServer
-		devicePath = asciiServer.ClientDevicePath()
+		connectionInfo = fmt.Sprintf("Client device path: %s", asciiServer.ClientDevicePath())
 
 	case "tcp":
-		log.Fatalf("TCP mode not yet implemented")
+		tcpServer, err := simulator.NewTCPServer(ds, &simulator.TCPServerConfig{
+			Address: *tcpAddress,
+		})
+		if err != nil {
+			log.Fatalf("failed to create TCP server: %v", err)
+		}
+		server = tcpServer
+		connectionInfo = fmt.Sprintf("TCP address: %s", tcpServer.Address())
 
 	default:
 		log.Fatalf("invalid mode %q: must be rtu, ascii, or tcp", *mode)
@@ -86,8 +94,8 @@ func main() {
 
 	// Print connection info
 	fmt.Printf("Modbus %s simulator running\n", *mode)
+	fmt.Printf("%s\n", connectionInfo)
 	if *mode == "rtu" || *mode == "ascii" {
-		fmt.Printf("Client device path: %s\n", devicePath)
 		fmt.Printf("Slave ID: %d\n", *slaveID)
 		fmt.Printf("Baud rate: %d\n", *baudRate)
 	}

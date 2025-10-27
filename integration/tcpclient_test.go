@@ -11,19 +11,22 @@ import (
 	"time"
 
 	"github.com/lumberbarons/modbus"
-)
-
-const (
-	tcpDevice = "localhost:5020"
+	"github.com/lumberbarons/modbus/internal/testutil"
 )
 
 func TestTCPClient(t *testing.T) {
-	client := modbus.TCPClient(tcpDevice)
+	cleanup, address := testutil.StartTCPSimulator(t)
+	defer cleanup()
+
+	client := modbus.TCPClient(address)
 	ClientTestAll(t, client)
 }
 
 func TestTCPClientAdvancedUsage(t *testing.T) {
-	handler := modbus.NewTCPClientHandler(tcpDevice)
+	cleanup, address := testutil.StartTCPSimulator(t)
+	defer cleanup()
+
+	handler := modbus.NewTCPClientHandler(address)
 	handler.Timeout = 5 * time.Second
 	handler.SlaveID = 1
 	handler.Logger = log.New(os.Stdout, "tcp: ", log.LstdFlags)

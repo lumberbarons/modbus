@@ -1,24 +1,46 @@
-System testing for [modbus library](https://github.com/lumberbarons/modbus)
+# Integration Tests for Modbus Library
 
-Modbus simulator
-----------------
-*   [Diagslave](http://www.modbusdriver.com/diagslave.html)
-*   [socat](http://www.dest-unreach.org/socat/)
+## Overview
+
+The integration tests are **fully automated** and require no external tools or manual setup. They use the built-in Modbus simulator located in `internal/simulator/`.
+
+## Running Tests
+
+Simply run the tests directly:
 
 ```bash
-# TCP
-$ diagslave -m tcp -p 5020
+# Run all integration tests
+$ go test -v ./integration
 
-# RTU/ASCII
-$ socat -d -d pty,raw,echo=0 pty,raw,echo=0
-2015/04/03 12:34:56 socat[2342] N PTY is /dev/pts/6
-2015/04/03 12:34:56 socat[2342] N PTY is /dev/pts/7
-$ diagslave -m ascii /dev/pts/7
-
-# Or
-$ diagslave -m rtu /dev/pts/7
-
-$ go test -v -run TCP
-$ go test -v -run RTU
-$ go test -v -run ASCII
+# Run specific protocol tests
+$ go test -v -run TCP ./integration
+$ go test -v -run RTU ./integration
+$ go test -v -run ASCII ./integration
 ```
+
+## How It Works
+
+Each test automatically:
+1. Starts a Modbus simulator server (RTU, ASCII, or TCP)
+2. Creates a client connection
+3. Runs comprehensive function code tests
+4. Cleans up and stops the simulator
+
+No external dependencies like diagslave or socat are needed!
+
+## Simulator CLI
+
+You can also run the simulator standalone for manual testing:
+
+```bash
+# TCP mode
+$ go run cmd/simulator/main.go -mode tcp -addr localhost:5020
+
+# RTU mode
+$ go run cmd/simulator/main.go -mode rtu -slave-id 17 -baud 19200
+
+# ASCII mode
+$ go run cmd/simulator/main.go -mode ascii -slave-id 17 -baud 19200
+```
+
+See `cmd/simulator/main.go` for all available options.
