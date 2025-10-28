@@ -1,0 +1,122 @@
+{
+  "NamedInputRegs": {
+    "12544": {
+      "name": "PV_VOLTAGE",
+      "value": 3000
+    },
+    "12545": {
+      "name": "PV_CURRENT",
+      "value": 500
+    },
+    "12546": {
+      "name": "PV_POWERL",
+      "value": 150
+    },
+    "12547": {
+      "name": "PV_POWERH",
+      "value": 0
+    },
+    "12550": {
+      "name": "BAT_POWERL",
+      "value": 160
+    },
+    "12551": {
+      "name": "BAT_POWERH",
+      "value": 0
+    },
+    "12556": {
+      "name": "LOAD_VOLTAGE",
+      "value": 2900
+    },
+    "12557": {
+      "name": "LOAD_CURRENT",
+      "value": 400
+    },
+    "12558": {
+      "name": "LOAD_POWERL",
+      "value": 96
+    },
+    "12559": {
+      "name": "LOAD_POWERH",
+      "value": 0
+    },
+    "12560": {
+      "name": "BAT_TEMP",
+      "value": 25
+    },
+    "12561": {
+      "name": "EQUIPMENT_TEMP",
+      "value": 30
+    },
+    "12570": {
+      "name": "BAT_SOC",
+      "value": 80
+    },
+    "13114": {
+      "name": "BAT_VOLTAGE",
+      "value": 3100
+    }
+  },
+  "NamedHoldingRegs": {
+    "36864": {
+      "name": "BAT_TYPE",
+      "value": 1
+    },
+    "36865": {
+      "name": "BAT_CAPACITY",
+      "value": 100
+    },
+    "36867": {
+      "name": "HIGH_VOLTAGE_DISCONNECT",
+      "value": 3400
+    },
+    "36868": {
+      "name": "CHARGING_LIMIT_VOLTAGE",
+      "value": 3300
+    },
+    "36869": {
+      "name": "OVER_VOLTAGE_RECONNECT",
+      "value": 3300
+    },
+    "36870": {
+      "name": "EQUALIZATION_VOLTAGE",
+      "value": 3300
+    },
+    "36871": {
+      "name": "BOOST_VOLTAGE",
+      "value": 3200
+    },
+    "36872": {
+      "name": "FLOAT_VOLTAGE",
+      "value": 3100
+    },
+    "36873": {
+      "name": "BOOST_RECONNECT_VOLTAGE",
+      "value": 3100
+    },
+    "36874": {
+      "name": "LOW_VOLTAGE_RECONNECT",
+      "value": 3000
+    },
+    "36875": {
+      "name": "UNDER_VOLTAGE_RECOVER",
+      "value": 3000
+    },
+    "36876": {
+      "name": "UNDER_VOLTAGE_WARNING",
+      "value": 2880
+    },
+    "36877": {
+      "name": "LOW_VOLTAGE_DISCONNECT",
+      "value": 2800
+    },
+    "36878": {
+      "name": "DISCHARGING_LIMIT_VOLTAGE",
+      "value": 2700
+    },
+    "36967": {
+      "name": "BAT_RATED_VOLTAGE",
+      "value": 3072
+    }
+  }
+}

@@ -125,3 +125,5 @@ All three share the same `Client` interface (defined in api.go) with methods for
 
 Minimum Go version: 1.22 (specified in go.mod)
 CI tests against Go 1.22, 1.23, 1.24, 1.25 on Ubuntu and macOS
+
+- Always run golangci-lint on new code
