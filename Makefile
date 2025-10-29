@@ -1,4 +1,4 @@
-.PHONY: all cli simulator clean test test-unit test-integration test-coverage help
+.PHONY: all cli simulator clean test test-unit test-integration test-coverage lint help
 
 BINDIR := bin
 COVERAGE_FILE := coverage.txt
@@ -37,6 +37,10 @@ test-coverage:
 	@echo "\nCoverage report generated: $(COVERAGE_FILE)"
 	@echo "View coverage with: go tool cover -html=$(COVERAGE_FILE)"
 
+# Run golangci-lint
+lint:
+	golangci-lint run --timeout=5m
+
 help:
 	@echo "Available targets:"
 	@echo "  all              - Build both CLI and simulator (default)"
@@ -46,5 +50,6 @@ help:
 	@echo "  test-unit        - Run unit tests only"
 	@echo "  test-integration - Run integration tests only"
 	@echo "  test-coverage    - Run unit tests with coverage report"
+	@echo "  lint             - Run golangci-lint"
 	@echo "  clean            - Remove bin/ directory and coverage files"
 	@echo "  help             - Show this help message"

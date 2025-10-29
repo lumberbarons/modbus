@@ -5,6 +5,7 @@
 package modbus
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -57,8 +58,7 @@ type rtuPackager struct {
 func (mb *rtuPackager) Encode(pdu *ProtocolDataUnit) (adu []byte, err error) {
 	length := len(pdu.Data) + 4
 	if length > rtuMaxSize {
-		err = fmt.Errorf("modbus: length of data '%v' must not be bigger than '%v'", length, rtuMaxSize)
-		return
+		return nil, fmt.Errorf("%w: length of data '%v' must not be bigger than '%v'", ErrInvalidData, length, rtuMaxSize)
 	}
 	adu = make([]byte, length)
 
@@ -73,7 +73,7 @@ func (mb *rtuPackager) Encode(pdu *ProtocolDataUnit) (adu []byte, err error) {
 
 	adu[length-1] = byte(checksum >> 8)
 	adu[length-2] = byte(checksum)
-	return
+	return adu, nil
 }
 
 // Verify verifies response length and slave id.
@@ -81,15 +81,13 @@ func (mb *rtuPackager) Verify(aduRequest, aduResponse []byte) (err error) {
 	length := len(aduResponse)
 	// Minimum size (including address, function and CRC)
 	if length < rtuMinSize {
-		err = fmt.Errorf("modbus: response length '%v' does not meet minimum '%v'", length, rtuMinSize)
-		return
+		return fmt.Errorf("%w: response length '%v' does not meet minimum '%v'", ErrShortFrame, length, rtuMinSize)
 	}
 	// Slave address must match
 	if aduResponse[0] != aduRequest[0] {
-		err = fmt.Errorf("modbus: response slave id '%v' does not match request '%v'", aduResponse[0], aduRequest[0])
-		return
+		return fmt.Errorf("%w: response slave id '%v' does not match request '%v'", ErrProtocolError, aduResponse[0], aduRequest[0])
 	}
-	return
+	return nil
 }
 
 // Decode extracts PDU from RTU frame and verify CRC.
@@ -100,14 +98,13 @@ func (mb *rtuPackager) Decode(adu []byte) (pdu *ProtocolDataUnit, err error) {
 	crc.reset().pushBytes(adu[0 : length-2])
 	checksum := uint16(adu[length-1])<<8 | uint16(adu[length-2])
 	if checksum != crc.value() {
-		err = fmt.Errorf("modbus: response crc '%v' does not match expected '%v'", checksum, crc.value())
-		return
+		return nil, fmt.Errorf("%w: response crc '%v' does not match expected '%v'", ErrProtocolError, checksum, crc.value())
 	}
 	// Function code & data
 	pdu = &ProtocolDataUnit{}
 	pdu.FunctionCode = adu[1]
 	pdu.Data = adu[2 : length-2]
-	return
+	return pdu, nil
 }
 
 // rtuSerialTransporter implements Transporter interface.
@@ -115,11 +112,25 @@ type rtuSerialTransporter struct {
 	serialPort
 }
 
-func (mb *rtuSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, err error) {
+func (mb *rtuSerialTransporter) Send(ctx context.Context, aduRequest []byte) (aduResponse []byte, err error) {
+	mb.mu.Lock()
+	defer mb.mu.Unlock()
+
+	// Check context before starting
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled before send: %w", err)
+	}
+
 	// Make sure port is connected
 	if err = mb.connect(); err != nil {
-		return
+		return nil, fmt.Errorf("connecting: %w", err)
 	}
+
+	// Check context after connect
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled: %w", err)
+	}
+
 	// Start the timer to close when idle
 	mb.lastActivity = time.Now()
 	mb.startCloseTimer()
@@ -127,12 +138,23 @@ func (mb *rtuSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, err
 	// Send the request
 	mb.logf("modbus: sending % x\n", aduRequest)
 	if _, err = mb.port.Write(aduRequest); err != nil {
-		return
+		return nil, fmt.Errorf("writing request: %w", err)
 	}
+
+	// Check context after write
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled: %w", err)
+	}
+
 	function := aduRequest[1]
 	functionFail := aduRequest[1] & 0x80
 	bytesToRead := calculateResponseLength(aduRequest)
 	time.Sleep(mb.calculateDelay(len(aduRequest) + bytesToRead))
+
+	// Check context after delay
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled: %w", err)
+	}
 
 	var n int
 	var n1 int
@@ -141,7 +163,7 @@ func (mb *rtuSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, err
 	// or the error package, depending on the error status (byte 2 of the response)
 	n, err = io.ReadAtLeast(mb.port, data[:], rtuMinSize)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("reading response: %w", err)
 	}
 	// if the function is correct
 	switch data[1] {
@@ -164,11 +186,11 @@ func (mb *rtuSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, err
 	}
 
 	if err != nil {
-		return
+		return nil, fmt.Errorf("reading response body: %w", err)
 	}
 	aduResponse = data[:n]
 	mb.logf("modbus: received % x\n", aduResponse)
-	return
+	return aduResponse, nil
 }
 
 // calculateDelay roughly calculates time needed for the next frame.

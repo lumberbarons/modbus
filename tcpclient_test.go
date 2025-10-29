@@ -6,6 +6,7 @@ package modbus
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net"
 	"testing"
@@ -75,7 +76,7 @@ func TestTCPTransporter(t *testing.T) {
 		IdleTimeout: 100 * time.Millisecond,
 	}
 	req := []byte{0, 1, 0, 2, 0, 2, 1, 2}
-	rsp, err := client.Send(req)
+	rsp, err := client.Send(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
