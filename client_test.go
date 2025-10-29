@@ -131,7 +131,7 @@ func TestReadCoils(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			result, err := client.ReadCoils(context.Background(), tt.address, tt.quantity)
 
@@ -199,7 +199,7 @@ func TestReadDiscreteInputs(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.ReadDiscreteInputs(context.Background(), 0, tt.quantity)
 
@@ -269,7 +269,7 @@ func TestReadHoldingRegisters(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.ReadHoldingRegisters(context.Background(), tt.address, tt.quantity)
 
@@ -324,7 +324,7 @@ func TestReadInputRegisters(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.ReadInputRegisters(context.Background(), 0, tt.quantity)
 
@@ -386,7 +386,7 @@ func TestWriteSingleCoil(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.WriteSingleCoil(context.Background(), tt.address, tt.value)
 
@@ -440,7 +440,7 @@ func TestWriteSingleRegister(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			result, err := client.WriteSingleRegister(context.Background(), tt.address, tt.value)
 
@@ -510,7 +510,7 @@ func TestWriteMultipleCoils(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.WriteMultipleCoils(context.Background(), 0, tt.quantity, tt.value)
 
@@ -576,7 +576,7 @@ func TestWriteMultipleRegisters(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.WriteMultipleRegisters(context.Background(), 0, tt.quantity, tt.value)
 
@@ -634,7 +634,7 @@ func TestMaskWriteRegister(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			result, err := client.MaskWriteRegister(context.Background(), tt.address, tt.andMask, tt.orMask)
 
@@ -721,7 +721,7 @@ func TestReadWriteMultipleRegisters(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.ReadWriteMultipleRegisters(context.Background(), 0, tt.readQuantity, 100, tt.writeQuantity, tt.value)
 
@@ -787,7 +787,7 @@ func TestReadFIFOQueue(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			result, err := client.ReadFIFOQueue(context.Background(), tt.address)
 

@@ -26,8 +26,10 @@ func NewClient(handler ClientHandler) Client {
 	return &client{packager: handler, transporter: handler}
 }
 
-// NewClient2 creates a new modbus client with given backend packager and transporter.
-func NewClient2(packager Packager, transporter Transporter) Client {
+// NewClientWithPackagerTransporter creates a new modbus client with separate packager and transporter.
+// This is useful for advanced use cases where you want to use different implementations
+// for the packager and transporter, such as in testing scenarios.
+func NewClientWithPackagerTransporter(packager Packager, transporter Transporter) Client {
 	return &client{packager: packager, transporter: transporter}
 }
 

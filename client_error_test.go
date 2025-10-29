@@ -48,7 +48,7 @@ func TestReadCoilsInvalidResponse(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.ReadCoils(context.Background(), 0, 10)
 
@@ -111,7 +111,7 @@ func TestWriteSingleCoilInvalidResponse(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.WriteSingleCoil(context.Background(), tt.address, tt.value)
 
@@ -169,7 +169,7 @@ func TestWriteSingleRegisterInvalidResponse(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.WriteSingleRegister(context.Background(), tt.address, tt.value)
 
@@ -223,7 +223,7 @@ func TestWriteMultipleCoilsInvalidResponse(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.WriteMultipleCoils(context.Background(), tt.address, tt.quantity, []byte{0xCD, 0x01})
 
@@ -277,7 +277,7 @@ func TestWriteMultipleRegistersInvalidResponse(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.WriteMultipleRegisters(context.Background(), tt.address, tt.quantity, []byte{0x00, 0x0A, 0x01, 0x02})
 
@@ -343,7 +343,7 @@ func TestMaskWriteRegisterInvalidResponse(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.MaskWriteRegister(context.Background(), tt.address, tt.andMask, tt.orMask)
 
@@ -384,7 +384,7 @@ func TestReadWriteMultipleRegistersInvalidResponse(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.ReadWriteMultipleRegisters(context.Background(), 0, 1, 100, 1, []byte{0x00, 0x0A})
 
@@ -440,7 +440,7 @@ func TestReadFIFOQueueInvalidResponse(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.ReadFIFOQueue(context.Background(), 100)
 
@@ -646,7 +646,7 @@ func TestClientExceptionHandling(t *testing.T) {
 				},
 			}
 			mockP := &mockPackager{}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			var err error
 			switch tt.requestFunc {
@@ -729,7 +729,7 @@ func TestPackagerErrors(t *testing.T) {
 					return tt.verifyErr
 				},
 			}
-			client := NewClient2(mockP, mockT)
+			client := NewClientWithPackagerTransporter(mockP, mockT)
 
 			_, err := client.ReadHoldingRegisters(context.Background(), 0, 1)
 
@@ -753,7 +753,7 @@ func TestTransporterErrors(t *testing.T) {
 		},
 	}
 	mockP := &mockPackager{}
-	client := NewClient2(mockP, mockT)
+	client := NewClientWithPackagerTransporter(mockP, mockT)
 
 	_, err := client.ReadCoils(context.Background(), 0, 10)
 
@@ -778,7 +778,7 @@ func TestClientContextCancellation(t *testing.T) {
 		},
 	}
 	mockP := &mockPackager{}
-	client := NewClient2(mockP, mockT)
+	client := NewClientWithPackagerTransporter(mockP, mockT)
 
 	_, err := client.ReadCoils(ctx, 0, 10)
 
