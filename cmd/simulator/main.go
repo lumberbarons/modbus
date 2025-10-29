@@ -6,38 +6,80 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/lumberbarons/modbus/internal/simulator"
 )
 
 func main() {
-	// Parse command line flags
-	mode := flag.String("mode", "rtu", "Modbus mode: rtu, ascii, or tcp")
-	slaveID := flag.Int("slave-id", 1, "Slave ID for serial modes (1-247)")
-	baudRate := flag.Int("baud", 19200, "Baud rate for serial modes")
-	tcpAddress := flag.String("addr", "localhost:5020", "TCP address for tcp mode (host:port)")
-	configFile := flag.String("config", "", "JSON config file for initial data values")
-	flag.Parse()
+	app := &cli.App{
+		Name:  "modbus-simulator",
+		Usage: "Modbus protocol simulator for testing",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "mode",
+				Aliases: []string{"m"},
+				Usage:   "Modbus mode: tcp, rtu, or ascii",
+				Value:   "tcp",
+			},
+			&cli.StringFlag{
+				Name:    "addr",
+				Aliases: []string{"a"},
+				Usage:   "TCP address (tcp mode only, format: host:port)",
+				Value:   "localhost:5020",
+			},
+			&cli.IntFlag{
+				Name:    "slave-id",
+				Aliases: []string{"s"},
+				Usage:   "Slave ID for serial modes (1-247)",
+				Value:   1,
+			},
+			&cli.IntFlag{
+				Name:  "baud",
+				Usage: "Baud rate for serial modes",
+				Value: 19200,
+			},
+			&cli.StringFlag{
+				Name:    "config",
+				Aliases: []string{"c"},
+				Usage:   "JSON config file for initial data values",
+			},
+		},
+		Action: runSimulator,
+	}
 
-	if *slaveID < 1 || *slaveID > 247 {
-		log.Fatalf("invalid slave ID %d: must be between 1 and 247", *slaveID)
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func runSimulator(c *cli.Context) error {
+	mode := c.String("mode")
+	slaveID := c.Int("slave-id")
+	baudRate := c.Int("baud")
+	tcpAddress := c.String("addr")
+	configFile := c.String("config")
+
+	// Validate slave ID
+	if slaveID < 1 || slaveID > 247 {
+		return fmt.Errorf("invalid slave ID %d: must be between 1 and 247", slaveID)
 	}
 
 	// Load configuration
 	var config *simulator.DataStoreConfig
-	if *configFile != "" {
+	if configFile != "" {
 		var err error
-		config, err = loadConfig(*configFile)
+		config, err = loadConfig(configFile)
 		if err != nil {
-			log.Fatalf("failed to load config: %v", err)
+			return fmt.Errorf("failed to load config: %w", err)
 		}
-		log.Printf("loaded initial data from %s", *configFile)
+		log.Printf("loaded initial data from %s", configFile)
 	}
 
 	// Create data store
@@ -50,54 +92,54 @@ func main() {
 	}
 	var connectionInfo string
 
-	switch *mode {
+	switch mode {
 	case "rtu":
 		rtuServer, err := simulator.NewRTUServer(ds, &simulator.RTUServerConfig{
-			SlaveID:  byte(*slaveID),
-			BaudRate: *baudRate,
+			SlaveID:  byte(slaveID),
+			BaudRate: baudRate,
 		})
 		if err != nil {
-			log.Fatalf("failed to create RTU server: %v", err)
+			return fmt.Errorf("failed to create RTU server: %w", err)
 		}
 		server = rtuServer
 		connectionInfo = fmt.Sprintf("Client device path: %s", rtuServer.ClientDevicePath())
 
 	case "ascii":
 		asciiServer, err := simulator.NewASCIIServer(ds, &simulator.ASCIIServerConfig{
-			SlaveID:  byte(*slaveID),
-			BaudRate: *baudRate,
+			SlaveID:  byte(slaveID),
+			BaudRate: baudRate,
 		})
 		if err != nil {
-			log.Fatalf("failed to create ASCII server: %v", err)
+			return fmt.Errorf("failed to create ASCII server: %w", err)
 		}
 		server = asciiServer
 		connectionInfo = fmt.Sprintf("Client device path: %s", asciiServer.ClientDevicePath())
 
 	case "tcp":
 		tcpServer, err := simulator.NewTCPServer(ds, &simulator.TCPServerConfig{
-			Address: *tcpAddress,
+			Address: tcpAddress,
 		})
 		if err != nil {
-			log.Fatalf("failed to create TCP server: %v", err)
+			return fmt.Errorf("failed to create TCP server: %w", err)
 		}
 		server = tcpServer
 		connectionInfo = fmt.Sprintf("TCP address: %s", tcpServer.Address())
 
 	default:
-		log.Fatalf("invalid mode %q: must be rtu, ascii, or tcp", *mode)
+		return fmt.Errorf("invalid mode %q: must be tcp, rtu, or ascii", mode)
 	}
 
 	// Start the server
 	if err := server.Start(); err != nil {
-		log.Fatalf("failed to start server: %v", err)
+		return fmt.Errorf("failed to start server: %w", err)
 	}
 
 	// Print connection info
-	fmt.Printf("Modbus %s simulator running\n", *mode)
+	fmt.Printf("Modbus %s simulator running\n", mode)
 	fmt.Printf("%s\n", connectionInfo)
-	if *mode == "rtu" || *mode == "ascii" {
-		fmt.Printf("Slave ID: %d\n", *slaveID)
-		fmt.Printf("Baud rate: %d\n", *baudRate)
+	if mode == "rtu" || mode == "ascii" {
+		fmt.Printf("Slave ID: %d\n", slaveID)
+		fmt.Printf("Baud rate: %d\n", baudRate)
 	}
 	fmt.Println("Press Ctrl+C to stop")
 
@@ -110,6 +152,8 @@ func main() {
 	if err := server.Stop(); err != nil {
 		log.Printf("error stopping server: %v", err)
 	}
+
+	return nil
 }
 
 // loadConfig loads a DataStoreConfig from a JSON file.

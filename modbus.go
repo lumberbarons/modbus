@@ -40,6 +40,28 @@ const (
 	ExceptionCodeGatewayTargetDeviceFailedToRespond = 11
 )
 
+// StopBits represents the number of stop bits for serial communication.
+type StopBits int
+
+const (
+	// OneStopBit represents one stop bit.
+	OneStopBit StopBits = 1
+	// TwoStopBits represents two stop bits.
+	TwoStopBits StopBits = 2
+)
+
+// Parity represents the parity mode for serial communication.
+type Parity string
+
+const (
+	// NoParity represents no parity checking.
+	NoParity Parity = "N"
+	// EvenParity represents even parity checking.
+	EvenParity Parity = "E"
+	// OddParity represents odd parity checking.
+	OddParity Parity = "O"
+)
+
 // ModbusError implements error interface.
 //
 //nolint:revive // Keep ModbusError name for backward compatibility

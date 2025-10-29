@@ -1,3 +1,5 @@
 .idea
 .claude
 bin/
+coverage.txt
+*.out

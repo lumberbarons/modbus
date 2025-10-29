@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
-	"go.bug.st/serial"
 
 	"github.com/lumberbarons/modbus"
 )
@@ -217,27 +216,27 @@ func createClient(c *cli.Context) (modbus.Client, error) {
 	}
 }
 
-func parseStopBits(bits int) serial.StopBits {
+func parseStopBits(bits int) modbus.StopBits {
 	switch bits {
 	case 1:
-		return serial.OneStopBit
+		return modbus.OneStopBit
 	case 2:
-		return serial.TwoStopBits
+		return modbus.TwoStopBits
 	default:
-		return serial.OneStopBit
+		return modbus.OneStopBit
 	}
 }
 
-func parseParity(parity string) serial.Parity {
+func parseParity(parity string) modbus.Parity {
 	switch parity {
 	case "none":
-		return serial.NoParity
+		return modbus.NoParity
 	case "odd":
-		return serial.OddParity
+		return modbus.OddParity
 	case "even":
-		return serial.EvenParity
+		return modbus.EvenParity
 	default:
-		return serial.EvenParity
+		return modbus.EvenParity
 	}
 }
 

@@ -9,8 +9,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
-
-	"go.bug.st/serial"
 )
 
 const (
@@ -34,8 +32,8 @@ func NewASCIIClientHandler(address string) *ASCIIClientHandler {
 	handler.Address = address
 	handler.BaudRate = 19200
 	handler.DataBits = 8
-	handler.StopBits = serial.OneStopBit
-	handler.Parity = serial.EvenParity
+	handler.StopBits = OneStopBit
+	handler.Parity = EvenParity
 	handler.Timeout = serialTimeout
 	handler.IdleTimeout = serialIdleTimeout
 	return handler

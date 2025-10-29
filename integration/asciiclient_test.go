@@ -9,8 +9,6 @@ import (
 	"os"
 	"testing"
 
-	"go.bug.st/serial"
-
 	"github.com/lumberbarons/modbus"
 	"github.com/lumberbarons/modbus/internal/testutil"
 )
@@ -31,8 +29,8 @@ func TestASCIIClientAdvancedUsage(t *testing.T) {
 	handler := modbus.NewASCIIClientHandler(asciiDevice)
 	handler.BaudRate = 19200
 	handler.DataBits = 8
-	handler.Parity = serial.EvenParity
-	handler.StopBits = serial.OneStopBit
+	handler.Parity = modbus.EvenParity
+	handler.StopBits = modbus.OneStopBit
 	handler.SlaveID = 12
 	handler.Logger = log.New(os.Stdout, "ascii: ", log.LstdFlags)
 	err := handler.Connect()
