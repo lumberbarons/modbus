@@ -27,27 +27,57 @@ type DataStore struct {
 	discreteInputs []bool
 	holdingRegs    []uint16
 	inputRegs      []uint16
+
+	// Register names for logging/debugging
+	coilNames          map[uint16]string
+	discreteInputNames map[uint16]string
+	holdingRegNames    map[uint16]string
+	inputRegNames      map[uint16]string
+}
+
+// RegisterConfig represents a named register with an initial value.
+type RegisterConfig struct {
+	Name  string `json:"name"`
+	Value uint16 `json:"value"`
+}
+
+// CoilConfig represents a named coil with an initial value.
+type CoilConfig struct {
+	Name  string `json:"name"`
+	Value bool   `json:"value"`
 }
 
 // DataStoreConfig allows configuring initial values for the data store.
 type DataStoreConfig struct {
 	// Initial values for each data type. If nil, defaults to zeros.
-	Coils          map[uint16]bool
-	DiscreteInputs map[uint16]bool
-	HoldingRegs    map[uint16]uint16
-	InputRegs      map[uint16]uint16
+	// Legacy format: map[address]value
+	Coils          map[uint16]bool   `json:"Coils,omitempty"`
+	DiscreteInputs map[uint16]bool   `json:"DiscreteInputs,omitempty"`
+	HoldingRegs    map[uint16]uint16 `json:"HoldingRegs,omitempty"`
+	InputRegs      map[uint16]uint16 `json:"InputRegs,omitempty"`
+
+	// New format: map[address]config with name
+	NamedCoils          map[uint16]CoilConfig     `json:"NamedCoils,omitempty"`
+	NamedDiscreteInputs map[uint16]CoilConfig     `json:"NamedDiscreteInputs,omitempty"`
+	NamedHoldingRegs    map[uint16]RegisterConfig `json:"NamedHoldingRegs,omitempty"`
+	NamedInputRegs      map[uint16]RegisterConfig `json:"NamedInputRegs,omitempty"`
 }
 
 // NewDataStore creates a new DataStore with optional initial configuration.
 func NewDataStore(config *DataStoreConfig) *DataStore {
 	ds := &DataStore{
-		coils:          make([]bool, maxAddress),
-		discreteInputs: make([]bool, maxAddress),
-		holdingRegs:    make([]uint16, maxAddress),
-		inputRegs:      make([]uint16, maxAddress),
+		coils:              make([]bool, maxAddress),
+		discreteInputs:     make([]bool, maxAddress),
+		holdingRegs:        make([]uint16, maxAddress),
+		inputRegs:          make([]uint16, maxAddress),
+		coilNames:          make(map[uint16]string),
+		discreteInputNames: make(map[uint16]string),
+		holdingRegNames:    make(map[uint16]string),
+		inputRegNames:      make(map[uint16]string),
 	}
 
 	if config != nil {
+		// Legacy format (backward compatibility)
 		for addr, val := range config.Coils {
 			ds.coils[addr] = val
 		}
@@ -59,6 +89,32 @@ func NewDataStore(config *DataStoreConfig) *DataStore {
 		}
 		for addr, val := range config.InputRegs {
 			ds.inputRegs[addr] = val
+		}
+
+		// New named format
+		for addr, cfg := range config.NamedCoils {
+			ds.coils[addr] = cfg.Value
+			if cfg.Name != "" {
+				ds.coilNames[addr] = cfg.Name
+			}
+		}
+		for addr, cfg := range config.NamedDiscreteInputs {
+			ds.discreteInputs[addr] = cfg.Value
+			if cfg.Name != "" {
+				ds.discreteInputNames[addr] = cfg.Name
+			}
+		}
+		for addr, cfg := range config.NamedHoldingRegs {
+			ds.holdingRegs[addr] = cfg.Value
+			if cfg.Name != "" {
+				ds.holdingRegNames[addr] = cfg.Name
+			}
+		}
+		for addr, cfg := range config.NamedInputRegs {
+			ds.inputRegs[addr] = cfg.Value
+			if cfg.Name != "" {
+				ds.inputRegNames[addr] = cfg.Name
+			}
 		}
 	}
 
@@ -200,4 +256,32 @@ func (ds *DataStore) validateRange(address, quantity uint16) error {
 		return fmt.Errorf("address range %d-%d exceeds maximum", address, uint32(address)+uint32(quantity)-1)
 	}
 	return nil
+}
+
+// GetCoilName returns the name of a coil at the given address, if configured.
+func (ds *DataStore) GetCoilName(address uint16) string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	return ds.coilNames[address]
+}
+
+// GetDiscreteInputName returns the name of a discrete input at the given address, if configured.
+func (ds *DataStore) GetDiscreteInputName(address uint16) string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	return ds.discreteInputNames[address]
+}
+
+// GetHoldingRegName returns the name of a holding register at the given address, if configured.
+func (ds *DataStore) GetHoldingRegName(address uint16) string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	return ds.holdingRegNames[address]
+}
+
+// GetInputRegName returns the name of an input register at the given address, if configured.
+func (ds *DataStore) GetInputRegName(address uint16) string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	return ds.inputRegNames[address]
 }

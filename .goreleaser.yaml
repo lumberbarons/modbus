@@ -1,0 +1,145 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: modbus-cli
+    main: ./cmd/cli
+    binary: modbus-cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+  - id: modbus-simulator
+    main: ./cmd/simulator
+    binary: modbus-simulator
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: cli-archive
+    ids:
+      - modbus-cli
+    name_template: >-
+      modbus-cli_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    formats:
+      - tar.gz
+    files:
+      - LICENSE
+      - README.md
+
+  - id: simulator-archive
+    ids:
+      - modbus-simulator
+    name_template: >-
+      modbus-simulator_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    formats:
+      - tar.gz
+    files:
+      - LICENSE
+      - README.md
+      - examples/**/*
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - 'merge conflict'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+
+release:
+  draft: true
+  replace_existing_draft: true
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Modbus Library Release {{ .Tag }}
+
+    This release includes pre-built binaries for the Modbus CLI and Simulator tools.
+
+  footer: |
+    ## Installation
+
+    Download the appropriate archive for your platform from the assets below, extract it, and add the binary to your PATH.
+
+    ### Quick Install (Linux/macOS)
+
+    **CLI Tool:**
+    ```bash
+    # Linux AMD64
+    curl -L https://github.com/lumberbarons/modbus/releases/download/{{ .Tag }}/modbus-cli_{{ .Tag }}_Linux_x86_64.tar.gz | tar xz
+    sudo mv modbus-cli /usr/local/bin/
+
+    # macOS ARM64 (Apple Silicon)
+    curl -L https://github.com/lumberbarons/modbus/releases/download/{{ .Tag }}/modbus-cli_{{ .Tag }}_Darwin_arm64.tar.gz | tar xz
+    sudo mv modbus-cli /usr/local/bin/
+    ```
+
+    **Simulator:**
+    ```bash
+    # Linux AMD64
+    curl -L https://github.com/lumberbarons/modbus/releases/download/{{ .Tag }}/modbus-simulator_{{ .Tag }}_Linux_x86_64.tar.gz | tar xz
+    sudo mv modbus-simulator /usr/local/bin/
+
+    # macOS ARM64 (Apple Silicon)
+    curl -L https://github.com/lumberbarons/modbus/releases/download/{{ .Tag }}/modbus-simulator_{{ .Tag }}_Darwin_arm64.tar.gz | tar xz
+    sudo mv modbus-simulator /usr/local/bin/
+    ```
+
+    ## Verification
+
+    All release artifacts include checksums in `checksums.txt`. Verify downloads with:
+    ```bash
+    sha256sum -c checksums.txt
+    ```
+
+    ---
+    **Full Changelog**: https://github.com/lumberbarons/modbus/compare/{{ .PreviousTag }}...{{ .Tag }}

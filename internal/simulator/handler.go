@@ -6,6 +6,9 @@ package simulator
 
 import (
 	"encoding/binary"
+	"fmt"
+	"log"
+	"strings"
 
 	"github.com/lumberbarons/modbus"
 )
@@ -67,6 +70,9 @@ func (h *Handler) handleReadCoils(req *modbus.ProtocolDataUnit) *modbus.Protocol
 		return newExceptionResponse(req.FunctionCode, modbus.ExceptionCodeIllegalDataAddress)
 	}
 
+	// Log the operation with register names
+	log.Printf("READ Coils: %s", h.formatCoilRange(address, quantity))
+
 	return &modbus.ProtocolDataUnit{
 		FunctionCode: req.FunctionCode,
 		Data:         boolsToBytes(coils),
@@ -89,6 +95,9 @@ func (h *Handler) handleReadDiscreteInputs(req *modbus.ProtocolDataUnit) *modbus
 	if err != nil {
 		return newExceptionResponse(req.FunctionCode, modbus.ExceptionCodeIllegalDataAddress)
 	}
+
+	// Log the operation with register names
+	log.Printf("READ Discrete Inputs: %s", h.formatDiscreteInputRange(address, quantity))
 
 	return &modbus.ProtocolDataUnit{
 		FunctionCode: req.FunctionCode,
@@ -113,6 +122,9 @@ func (h *Handler) handleReadHoldingRegisters(req *modbus.ProtocolDataUnit) *modb
 		return newExceptionResponse(req.FunctionCode, modbus.ExceptionCodeIllegalDataAddress)
 	}
 
+	// Log the operation with register names
+	log.Printf("READ Holding Registers: %s", h.formatHoldingRegRange(address, quantity, registers))
+
 	return &modbus.ProtocolDataUnit{
 		FunctionCode: req.FunctionCode,
 		Data:         registersToBytes(registers),
@@ -136,6 +148,9 @@ func (h *Handler) handleReadInputRegisters(req *modbus.ProtocolDataUnit) *modbus
 		return newExceptionResponse(req.FunctionCode, modbus.ExceptionCodeIllegalDataAddress)
 	}
 
+	// Log the operation with register names
+	log.Printf("READ Input Registers: %s", h.formatInputRegRange(address, quantity, registers))
+
 	return &modbus.ProtocolDataUnit{
 		FunctionCode: req.FunctionCode,
 		Data:         registersToBytes(registers),
@@ -154,8 +169,17 @@ func (h *Handler) handleWriteSingleCoil(req *modbus.ProtocolDataUnit) *modbus.Pr
 		return newExceptionResponse(req.FunctionCode, modbus.ExceptionCodeIllegalDataValue)
 	}
 
-	if err := h.dataStore.WriteSingleCoil(address, value == 0xFF00); err != nil {
+	boolValue := value == 0xFF00
+	if err := h.dataStore.WriteSingleCoil(address, boolValue); err != nil {
 		return newExceptionResponse(req.FunctionCode, modbus.ExceptionCodeIllegalDataAddress)
+	}
+
+	// Log the operation with register names
+	name := h.dataStore.GetCoilName(address)
+	if name != "" {
+		log.Printf("WRITE Coil: %s (0x%04X) = %v", name, address, boolValue)
+	} else {
+		log.Printf("WRITE Coil: 0x%04X = %v", address, boolValue)
 	}
 
 	// Echo back the request
@@ -175,6 +199,14 @@ func (h *Handler) handleWriteSingleRegister(req *modbus.ProtocolDataUnit) *modbu
 
 	if err := h.dataStore.WriteSingleRegister(address, value); err != nil {
 		return newExceptionResponse(req.FunctionCode, modbus.ExceptionCodeIllegalDataAddress)
+	}
+
+	// Log the operation with register names
+	name := h.dataStore.GetHoldingRegName(address)
+	if name != "" {
+		log.Printf("WRITE Holding Register: %s (0x%04X) = %d", name, address, value)
+	} else {
+		log.Printf("WRITE Holding Register: 0x%04X = %d", address, value)
 	}
 
 	// Echo back the request
@@ -375,4 +407,74 @@ func bytesToRegisters(data []byte) []uint16 {
 		result[i] = binary.BigEndian.Uint16(data[i*2:])
 	}
 	return result
+}
+
+// Helper functions for formatting register names in logs
+
+func (h *Handler) formatCoilRange(address, quantity uint16) string {
+	var parts []string
+	for i := uint16(0); i < quantity; i++ {
+		addr := address + i
+		name := h.dataStore.GetCoilName(addr)
+		if name != "" {
+			parts = append(parts, fmt.Sprintf("%s (0x%04X)", name, addr))
+		} else {
+			parts = append(parts, fmt.Sprintf("0x%04X", addr))
+		}
+	}
+	if len(parts) > 5 {
+		return fmt.Sprintf("%s ... %s (%d total)", parts[0], parts[len(parts)-1], quantity)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func (h *Handler) formatDiscreteInputRange(address, quantity uint16) string {
+	var parts []string
+	for i := uint16(0); i < quantity; i++ {
+		addr := address + i
+		name := h.dataStore.GetDiscreteInputName(addr)
+		if name != "" {
+			parts = append(parts, fmt.Sprintf("%s (0x%04X)", name, addr))
+		} else {
+			parts = append(parts, fmt.Sprintf("0x%04X", addr))
+		}
+	}
+	if len(parts) > 5 {
+		return fmt.Sprintf("%s ... %s (%d total)", parts[0], parts[len(parts)-1], quantity)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func (h *Handler) formatHoldingRegRange(address, quantity uint16, values []uint16) string {
+	var parts []string
+	for i := uint16(0); i < quantity; i++ {
+		addr := address + i
+		name := h.dataStore.GetHoldingRegName(addr)
+		if name != "" {
+			parts = append(parts, fmt.Sprintf("%s (0x%04X)=%d", name, addr, values[i]))
+		} else {
+			parts = append(parts, fmt.Sprintf("0x%04X=%d", addr, values[i]))
+		}
+	}
+	if len(parts) > 5 {
+		return fmt.Sprintf("%s ... %s (%d total)", parts[0], parts[len(parts)-1], quantity)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func (h *Handler) formatInputRegRange(address, quantity uint16, values []uint16) string {
+	var parts []string
+	for i := uint16(0); i < quantity; i++ {
+		addr := address + i
+		name := h.dataStore.GetInputRegName(addr)
+		if name != "" {
+			parts = append(parts, fmt.Sprintf("%s (0x%04X)=%d", name, addr, values[i]))
+		} else {
+			parts = append(parts, fmt.Sprintf("0x%04X=%d", addr, values[i]))
+		}
+	}
+	if len(parts) > 5 {
+		return fmt.Sprintf("%s ... %s (%d total)", parts[0], parts[len(parts)-1], quantity)
+	}
+	return strings.Join(parts, ", ")
 }

@@ -24,8 +24,8 @@ type serialPort struct {
 	Address     string
 	BaudRate    int
 	DataBits    int
-	StopBits    serial.StopBits
-	Parity      serial.Parity
+	StopBits    StopBits
+	Parity      Parity
 	Timeout     time.Duration
 	Logger      *log.Logger
 	IdleTimeout time.Duration
@@ -35,6 +35,28 @@ type serialPort struct {
 	port         serial.Port
 	lastActivity time.Time
 	closeTimer   *time.Timer
+}
+
+// toSerialStopBits converts modbus StopBits to serial library StopBits.
+func toSerialStopBits(sb StopBits) serial.StopBits {
+	switch sb {
+	case TwoStopBits:
+		return serial.TwoStopBits
+	default:
+		return serial.OneStopBit
+	}
+}
+
+// toSerialParity converts modbus Parity to serial library Parity.
+func toSerialParity(p Parity) serial.Parity {
+	switch p {
+	case NoParity:
+		return serial.NoParity
+	case OddParity:
+		return serial.OddParity
+	default:
+		return serial.EvenParity
+	}
 }
 
 func (mb *serialPort) Connect() (err error) {
@@ -50,8 +72,8 @@ func (mb *serialPort) connect() error {
 		mode := &serial.Mode{
 			BaudRate: mb.BaudRate,
 			DataBits: mb.DataBits,
-			StopBits: mb.StopBits,
-			Parity:   mb.Parity,
+			StopBits: toSerialStopBits(mb.StopBits),
+			Parity:   toSerialParity(mb.Parity),
 		}
 		port, err := serial.Open(mb.Address, mode)
 		if err != nil {
