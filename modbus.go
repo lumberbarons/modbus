@@ -8,6 +8,7 @@ Package modbus provides a client for MODBUS TCP and RTU/ASCII.
 package modbus
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -26,6 +27,26 @@ const (
 	FuncCodeReadWriteMultipleRegisters = 23
 	FuncCodeMaskWriteRegister          = 22
 	FuncCodeReadFIFOQueue              = 24
+)
+
+// Common errors returned by the modbus package.
+var (
+	// ErrInvalidQuantity is returned when a quantity parameter is outside valid range.
+	ErrInvalidQuantity = errors.New("modbus: invalid quantity")
+	// ErrInvalidAddress is returned when an address parameter is outside valid range.
+	ErrInvalidAddress = errors.New("modbus: invalid address")
+	// ErrInvalidData is returned when data length or values are invalid.
+	ErrInvalidData = errors.New("modbus: invalid data")
+	// ErrTimeout is returned when an operation times out.
+	ErrTimeout = errors.New("modbus: timeout")
+	// ErrNotConnected is returned when attempting operations on a closed connection.
+	ErrNotConnected = errors.New("modbus: not connected")
+	// ErrInvalidResponse is returned when a response is malformed or unexpected.
+	ErrInvalidResponse = errors.New("modbus: invalid response")
+	// ErrShortFrame is returned when a received frame is too short.
+	ErrShortFrame = errors.New("modbus: response frame too short")
+	// ErrProtocolError is returned for protocol-level violations.
+	ErrProtocolError = errors.New("modbus: protocol error")
 )
 
 const (

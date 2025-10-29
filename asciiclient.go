@@ -62,26 +62,25 @@ func (mb *asciiPackager) Encode(pdu *ProtocolDataUnit) (adu []byte, err error) {
 	var buf bytes.Buffer
 
 	if _, err = buf.WriteString(asciiStart); err != nil {
-		return
+		return nil, fmt.Errorf("writing start: %w", err)
 	}
 	if err = writeHex(&buf, []byte{mb.SlaveID, pdu.FunctionCode}); err != nil {
-		return
+		return nil, fmt.Errorf("writing header: %w", err)
 	}
 	if err = writeHex(&buf, pdu.Data); err != nil {
-		return
+		return nil, fmt.Errorf("writing data: %w", err)
 	}
 	// Exclude the beginning colon and terminating CRLF pair characters
 	var lrc lrc
 	lrc.reset()
 	lrc.pushByte(mb.SlaveID).pushByte(pdu.FunctionCode).pushBytes(pdu.Data)
 	if err = writeHex(&buf, []byte{lrc.value()}); err != nil {
-		return
+		return nil, fmt.Errorf("writing LRC: %w", err)
 	}
 	if _, err = buf.WriteString(asciiEnd); err != nil {
-		return
+		return nil, fmt.Errorf("writing end: %w", err)
 	}
-	adu = buf.Bytes()
-	return
+	return buf.Bytes(), nil
 }
 
 // Verify verifies response length, frame boundary and slave id.
@@ -89,40 +88,35 @@ func (mb *asciiPackager) Verify(aduRequest, aduResponse []byte) (err error) {
 	length := len(aduResponse)
 	// Minimum size (including address, function and LRC)
 	if length < asciiMinSize+6 {
-		err = fmt.Errorf("modbus: response length '%v' does not meet minimum '%v'", length, 9)
-		return
+		return fmt.Errorf("%w: response length '%v' does not meet minimum '%v'", ErrShortFrame, length, 9)
 	}
 	// Length excluding colon must be an even number
 	if length%2 != 1 {
-		err = fmt.Errorf("modbus: response length '%v' is not an even number", length-1)
-		return
+		return fmt.Errorf("%w: response length '%v' is not an even number", ErrProtocolError, length-1)
 	}
 	// First char must be a colon
 	str := string(aduResponse[0:len(asciiStart)])
 	if str != asciiStart {
-		err = fmt.Errorf("modbus: response frame '%v'... is not started with '%v'", str, asciiStart)
-		return
+		return fmt.Errorf("%w: response frame '%v'... is not started with '%v'", ErrProtocolError, str, asciiStart)
 	}
 	// 2 last chars must be \r\n
 	str = string(aduResponse[len(aduResponse)-len(asciiEnd):])
 	if str != asciiEnd {
-		err = fmt.Errorf("modbus: response frame ...'%v' is not ended with '%v'", str, asciiEnd)
-		return
+		return fmt.Errorf("%w: response frame ...'%v' is not ended with '%v'", ErrProtocolError, str, asciiEnd)
 	}
 	// Slave id
 	responseVal, err := readHex(aduResponse[1:])
 	if err != nil {
-		return
+		return fmt.Errorf("reading response slave id: %w", err)
 	}
 	requestVal, err := readHex(aduRequest[1:])
 	if err != nil {
-		return
+		return fmt.Errorf("reading request slave id: %w", err)
 	}
 	if responseVal != requestVal {
-		err = fmt.Errorf("modbus: response slave id '%v' does not match request '%v'", responseVal, requestVal)
-		return
+		return fmt.Errorf("%w: response slave id '%v' does not match request '%v'", ErrProtocolError, responseVal, requestVal)
 	}
-	return
+	return nil
 }
 
 // Decode extracts PDU from ASCII frame and verify LRC.
@@ -131,33 +125,32 @@ func (mb *asciiPackager) Decode(adu []byte) (pdu *ProtocolDataUnit, err error) {
 	// Slave address
 	address, err := readHex(adu[1:])
 	if err != nil {
-		return
+		return nil, fmt.Errorf("reading slave address: %w", err)
 	}
 	// Function code
 	if pdu.FunctionCode, err = readHex(adu[3:]); err != nil {
-		return
+		return nil, fmt.Errorf("reading function code: %w", err)
 	}
 	// Data
 	dataEnd := len(adu) - 4
 	data := adu[5:dataEnd]
 	pdu.Data = make([]byte, hex.DecodedLen(len(data)))
 	if _, err = hex.Decode(pdu.Data, data); err != nil {
-		return
+		return nil, fmt.Errorf("decoding data: %w", err)
 	}
 	// LRC
 	lrcVal, err := readHex(adu[dataEnd:])
 	if err != nil {
-		return
+		return nil, fmt.Errorf("reading LRC: %w", err)
 	}
 	// Calculate checksum
 	var lrc lrc
 	lrc.reset()
 	lrc.pushByte(address).pushByte(pdu.FunctionCode).pushBytes(pdu.Data)
 	if lrcVal != lrc.value() {
-		err = fmt.Errorf("modbus: response lrc '%v' does not match expected '%v'", lrcVal, lrc.value())
-		return
+		return nil, fmt.Errorf("%w: response lrc '%v' does not match expected '%v'", ErrProtocolError, lrcVal, lrc.value())
 	}
-	return
+	return pdu, nil
 }
 
 // asciiSerialTransporter implements Transporter interface.
@@ -171,7 +164,7 @@ func (mb *asciiSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, e
 
 	// Make sure port is connected
 	if err = mb.connect(); err != nil {
-		return
+		return nil, fmt.Errorf("connecting: %w", err)
 	}
 	// Start the timer to close when idle
 	mb.lastActivity = time.Now()
@@ -180,7 +173,7 @@ func (mb *asciiSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, e
 	// Send the request
 	mb.logf("modbus: sending %q\n", aduRequest)
 	if _, err = mb.port.Write(aduRequest); err != nil {
-		return
+		return nil, fmt.Errorf("writing request: %w", err)
 	}
 	// Get the response
 	var n int
@@ -188,7 +181,7 @@ func (mb *asciiSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, e
 	length := 0
 	for {
 		if n, err = mb.port.Read(data[length:]); err != nil {
-			return
+			return nil, fmt.Errorf("reading response: %w", err)
 		}
 		length += n
 		if length >= asciiMaxSize || n == 0 {
@@ -203,7 +196,7 @@ func (mb *asciiSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, e
 	}
 	aduResponse = data[:length]
 	mb.logf("modbus: received %q\n", aduResponse)
-	return
+	return aduResponse, nil
 }
 
 // writeHex encodes byte to string in hexadecimal, e.g. 0xA5 => "A5"

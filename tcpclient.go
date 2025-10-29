@@ -89,22 +89,19 @@ func (mb *tcpPackager) Verify(aduRequest, aduResponse []byte) (err error) {
 	responseVal := binary.BigEndian.Uint16(aduResponse)
 	requestVal := binary.BigEndian.Uint16(aduRequest)
 	if responseVal != requestVal {
-		err = fmt.Errorf("modbus: response transaction id '%v' does not match request '%v'", responseVal, requestVal)
-		return
+		return fmt.Errorf("%w: response transaction id '%v' does not match request '%v'", ErrProtocolError, responseVal, requestVal)
 	}
 	// Protocol id
 	responseVal = binary.BigEndian.Uint16(aduResponse[2:])
 	requestVal = binary.BigEndian.Uint16(aduRequest[2:])
 	if responseVal != requestVal {
-		err = fmt.Errorf("modbus: response protocol id '%v' does not match request '%v'", responseVal, requestVal)
-		return
+		return fmt.Errorf("%w: response protocol id '%v' does not match request '%v'", ErrProtocolError, responseVal, requestVal)
 	}
 	// Unit id (1 byte)
 	if aduResponse[6] != aduRequest[6] {
-		err = fmt.Errorf("modbus: response unit id '%v' does not match request '%v'", aduResponse[6], aduRequest[6])
-		return
+		return fmt.Errorf("%w: response unit id '%v' does not match request '%v'", ErrProtocolError, aduResponse[6], aduRequest[6])
 	}
-	return
+	return nil
 }
 
 // Decode extracts PDU from TCP frame:
@@ -118,14 +115,13 @@ func (mb *tcpPackager) Decode(adu []byte) (pdu *ProtocolDataUnit, err error) {
 	length := binary.BigEndian.Uint16(adu[4:])
 	pduLength := len(adu) - tcpHeaderSize
 	if pduLength <= 0 || pduLength != int(length-1) {
-		err = fmt.Errorf("modbus: length in response '%v' does not match pdu data length '%v'", length-1, pduLength)
-		return
+		return nil, fmt.Errorf("%w: length in response '%v' does not match pdu data length '%v'", ErrProtocolError, length-1, pduLength)
 	}
 	pdu = &ProtocolDataUnit{}
 	// The first byte after header is function code
 	pdu.FunctionCode = adu[tcpHeaderSize]
 	pdu.Data = adu[tcpHeaderSize+1:]
-	return
+	return pdu, nil
 }
 
 // tcpTransporter implements Transporter interface.
@@ -153,7 +149,7 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 
 	// Establish a new connection if not connected
 	if err = mb.connect(); err != nil {
-		return
+		return nil, fmt.Errorf("connecting: %w", err)
 	}
 	// Set timer to close when idle
 	mb.lastActivity = time.Now()
@@ -164,38 +160,36 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 		timeout = mb.lastActivity.Add(mb.Timeout)
 	}
 	if err = mb.conn.SetDeadline(timeout); err != nil {
-		return
+		return nil, fmt.Errorf("setting deadline: %w", err)
 	}
 	// Send data
 	mb.logf("modbus: sending % x", aduRequest)
 	if _, err = mb.conn.Write(aduRequest); err != nil {
-		return
+		return nil, fmt.Errorf("writing request: %w", err)
 	}
 	// Read header first
 	var data [tcpMaxLength]byte
 	if _, err = io.ReadFull(mb.conn, data[:tcpHeaderSize]); err != nil {
-		return
+		return nil, fmt.Errorf("reading response header: %w", err)
 	}
 	// Read length, ignore transaction & protocol id (4 bytes)
 	length := int(binary.BigEndian.Uint16(data[4:]))
 	if length <= 0 {
 		mb.flush(data[:])
-		err = fmt.Errorf("modbus: length in response header '%v' must not be zero", length)
-		return
+		return nil, fmt.Errorf("%w: length in response header '%v' must not be zero", ErrProtocolError, length)
 	}
 	if length > (tcpMaxLength - (tcpHeaderSize - 1)) {
 		mb.flush(data[:])
-		err = fmt.Errorf("modbus: length in response header '%v' must not greater than '%v'", length, tcpMaxLength-tcpHeaderSize+1)
-		return
+		return nil, fmt.Errorf("%w: length in response header '%v' must not greater than '%v'", ErrProtocolError, length, tcpMaxLength-tcpHeaderSize+1)
 	}
 	// Skip unit id
 	length += tcpHeaderSize - 1
 	if _, err = io.ReadFull(mb.conn, data[tcpHeaderSize:length]); err != nil {
-		return
+		return nil, fmt.Errorf("reading response body: %w", err)
 	}
 	aduResponse = data[:length]
 	mb.logf("modbus: received % x\n", aduResponse)
-	return
+	return aduResponse, nil
 }
 
 // Connect establishes a new connection to the address in Address.
@@ -212,7 +206,7 @@ func (mb *tcpTransporter) connect() error {
 		dialer := net.Dialer{Timeout: mb.Timeout}
 		conn, err := dialer.Dial("tcp", mb.Address)
 		if err != nil {
-			return err
+			return fmt.Errorf("dialing %s: %w", mb.Address, err)
 		}
 		mb.conn = conn
 	}
