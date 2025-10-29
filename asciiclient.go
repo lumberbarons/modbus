@@ -6,6 +6,7 @@ package modbus
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -158,14 +159,25 @@ type asciiSerialTransporter struct {
 	serialPort
 }
 
-func (mb *asciiSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, err error) {
+func (mb *asciiSerialTransporter) Send(ctx context.Context, aduRequest []byte) (aduResponse []byte, err error) {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
+
+	// Check context before starting
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled before send: %w", err)
+	}
 
 	// Make sure port is connected
 	if err = mb.connect(); err != nil {
 		return nil, fmt.Errorf("connecting: %w", err)
 	}
+
+	// Check context after connect
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled: %w", err)
+	}
+
 	// Start the timer to close when idle
 	mb.lastActivity = time.Now()
 	mb.startCloseTimer()
@@ -175,11 +187,22 @@ func (mb *asciiSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, e
 	if _, err = mb.port.Write(aduRequest); err != nil {
 		return nil, fmt.Errorf("writing request: %w", err)
 	}
+
+	// Check context after write
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled: %w", err)
+	}
+
 	// Get the response
 	var n int
 	var data [asciiMaxSize]byte
 	length := 0
 	for {
+		// Check context before each read iteration
+		if err = ctx.Err(); err != nil {
+			return nil, fmt.Errorf("context cancelled: %w", err)
+		}
+
 		if n, err = mb.port.Read(data[length:]); err != nil {
 			return nil, fmt.Errorf("reading response: %w", err)
 		}

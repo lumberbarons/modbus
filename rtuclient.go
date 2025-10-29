@@ -5,6 +5,7 @@
 package modbus
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -111,14 +112,25 @@ type rtuSerialTransporter struct {
 	serialPort
 }
 
-func (mb *rtuSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, err error) {
+func (mb *rtuSerialTransporter) Send(ctx context.Context, aduRequest []byte) (aduResponse []byte, err error) {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
+
+	// Check context before starting
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled before send: %w", err)
+	}
 
 	// Make sure port is connected
 	if err = mb.connect(); err != nil {
 		return nil, fmt.Errorf("connecting: %w", err)
 	}
+
+	// Check context after connect
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled: %w", err)
+	}
+
 	// Start the timer to close when idle
 	mb.lastActivity = time.Now()
 	mb.startCloseTimer()
@@ -128,10 +140,21 @@ func (mb *rtuSerialTransporter) Send(aduRequest []byte) (aduResponse []byte, err
 	if _, err = mb.port.Write(aduRequest); err != nil {
 		return nil, fmt.Errorf("writing request: %w", err)
 	}
+
+	// Check context after write
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled: %w", err)
+	}
+
 	function := aduRequest[1]
 	functionFail := aduRequest[1] & 0x80
 	bytesToRead := calculateResponseLength(aduRequest)
 	time.Sleep(mb.calculateDelay(len(aduRequest) + bytesToRead))
+
+	// Check context after delay
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled: %w", err)
+	}
 
 	var n int
 	var n1 int

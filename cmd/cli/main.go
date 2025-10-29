@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -240,12 +243,32 @@ func parseParity(parity string) modbus.Parity {
 	}
 }
 
+// createContextWithSignalHandler creates a context that is cancelled on SIGINT/SIGTERM
+func createContextWithSignalHandler() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Set up signal handling for graceful shutdown
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigCh
+		log.Println("Received interrupt signal, cancelling operation...")
+		cancel()
+	}()
+
+	return ctx, cancel
+}
+
 // readCoilsAction handles the read-coils command
 func readCoilsAction(c *cli.Context) error {
 	client, err := createClient(c)
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := createContextWithSignalHandler()
+	defer cancel()
 
 	start := uint16(c.Uint("start"))
 	count := uint16(c.Uint("count"))
@@ -255,7 +278,7 @@ func readCoilsAction(c *cli.Context) error {
 		return fmt.Errorf("count must be between 1 and 2000")
 	}
 
-	results, err := client.ReadCoils(start, count)
+	results, err := client.ReadCoils(ctx, start, count)
 	if err != nil {
 		return fmt.Errorf("failed to read coils: %w", err)
 	}
@@ -271,6 +294,9 @@ func readDiscreteInputsAction(c *cli.Context) error {
 		return err
 	}
 
+	ctx, cancel := createContextWithSignalHandler()
+	defer cancel()
+
 	start := uint16(c.Uint("start"))
 	count := uint16(c.Uint("count"))
 	format := c.String("format")
@@ -279,7 +305,7 @@ func readDiscreteInputsAction(c *cli.Context) error {
 		return fmt.Errorf("count must be between 1 and 2000")
 	}
 
-	results, err := client.ReadDiscreteInputs(start, count)
+	results, err := client.ReadDiscreteInputs(ctx, start, count)
 	if err != nil {
 		return fmt.Errorf("failed to read discrete inputs: %w", err)
 	}
@@ -295,6 +321,9 @@ func readHoldingRegistersAction(c *cli.Context) error {
 		return err
 	}
 
+	ctx, cancel := createContextWithSignalHandler()
+	defer cancel()
+
 	start := uint16(c.Uint("start"))
 	count := uint16(c.Uint("count"))
 	format := c.String("format")
@@ -303,7 +332,7 @@ func readHoldingRegistersAction(c *cli.Context) error {
 		return fmt.Errorf("count must be between 1 and 125")
 	}
 
-	results, err := client.ReadHoldingRegisters(start, count)
+	results, err := client.ReadHoldingRegisters(ctx, start, count)
 	if err != nil {
 		return fmt.Errorf("failed to read holding registers: %w", err)
 	}
@@ -319,6 +348,9 @@ func readInputRegistersAction(c *cli.Context) error {
 		return err
 	}
 
+	ctx, cancel := createContextWithSignalHandler()
+	defer cancel()
+
 	start := uint16(c.Uint("start"))
 	count := uint16(c.Uint("count"))
 	format := c.String("format")
@@ -327,7 +359,7 @@ func readInputRegistersAction(c *cli.Context) error {
 		return fmt.Errorf("count must be between 1 and 125")
 	}
 
-	results, err := client.ReadInputRegisters(start, count)
+	results, err := client.ReadInputRegisters(ctx, start, count)
 	if err != nil {
 		return fmt.Errorf("failed to read input registers: %w", err)
 	}
@@ -343,10 +375,13 @@ func readFIFOAction(c *cli.Context) error {
 		return err
 	}
 
+	ctx, cancel := createContextWithSignalHandler()
+	defer cancel()
+
 	address := uint16(c.Uint("address"))
 	format := c.String("format")
 
-	results, err := client.ReadFIFOQueue(address)
+	results, err := client.ReadFIFOQueue(ctx, address)
 	if err != nil {
 		return fmt.Errorf("failed to read FIFO queue: %w", err)
 	}

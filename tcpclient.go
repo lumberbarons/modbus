@@ -5,6 +5,7 @@
 package modbus
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -143,20 +144,27 @@ type tcpTransporter struct {
 }
 
 // Send sends data to server and ensures response length is greater than header length.
-func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error) {
+func (mb *tcpTransporter) Send(ctx context.Context, aduRequest []byte) (aduResponse []byte, err error) {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
+	// Check context before starting
+	if err = ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled before send: %w", err)
+	}
+
 	// Establish a new connection if not connected
-	if err = mb.connect(); err != nil {
+	if err = mb.connectContext(ctx); err != nil {
 		return nil, fmt.Errorf("connecting: %w", err)
 	}
 	// Set timer to close when idle
 	mb.lastActivity = time.Now()
 	mb.startCloseTimer()
-	// Set write and read timeout
+	// Set write and read timeout using context deadline or configured timeout
 	var timeout time.Time
-	if mb.Timeout > 0 {
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout = deadline
+	} else if mb.Timeout > 0 {
 		timeout = mb.lastActivity.Add(mb.Timeout)
 	}
 	if err = mb.conn.SetDeadline(timeout); err != nil {
@@ -202,9 +210,13 @@ func (mb *tcpTransporter) Connect() error {
 }
 
 func (mb *tcpTransporter) connect() error {
+	return mb.connectContext(context.Background())
+}
+
+func (mb *tcpTransporter) connectContext(ctx context.Context) error {
 	if mb.conn == nil {
 		dialer := net.Dialer{Timeout: mb.Timeout}
-		conn, err := dialer.Dial("tcp", mb.Address)
+		conn, err := dialer.DialContext(ctx, "tcp", mb.Address)
 		if err != nil {
 			return fmt.Errorf("dialing %s: %w", mb.Address, err)
 		}

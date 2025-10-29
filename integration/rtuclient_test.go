@@ -5,6 +5,7 @@
 package integration
 
 import (
+	"context"
 	"log"
 	"os"
 	"testing"
@@ -40,11 +41,12 @@ func TestRTUClientAdvancedUsage(t *testing.T) {
 	defer handler.Close()
 
 	client := modbus.NewClient(handler)
-	results, err := client.ReadDiscreteInputs(15, 2)
+	ctx := context.Background()
+	results, err := client.ReadDiscreteInputs(ctx, 15, 2)
 	if err != nil || results == nil {
 		t.Fatal(err, results)
 	}
-	results, err = client.ReadWriteMultipleRegisters(0, 2, 2, 2, []byte{1, 2, 3, 4})
+	results, err = client.ReadWriteMultipleRegisters(ctx, 0, 2, 2, 2, []byte{1, 2, 3, 4})
 	if err != nil || results == nil {
 		t.Fatal(err, results)
 	}
