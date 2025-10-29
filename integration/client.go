@@ -133,7 +133,7 @@ func ClientTestReadFIFOQueue(t *testing.T, client modbus.Client) {
 	results, err := client.ReadFIFOQueue(context.Background(), address)
 	// Server not implemented
 	if err != nil {
-		AssertEquals(t, "modbus: exception '1' (illegal function), function '152'", err.Error())
+		AssertEquals(t, "reading FIFO queue: modbus: exception '1' (illegal function), function '152'", err.Error())
 	} else {
 		AssertEquals(t, 0, len(results))
 	}
