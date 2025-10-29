@@ -13,9 +13,27 @@ The library provides a fault-tolerant, fail-fast client implementation for all s
 
 ## Development Commands
 
+### Using Make (Recommended)
+
+```bash
+make                    # Build both CLI and simulator (default)
+make cli                # Build modbus-cli in bin/
+make simulator          # Build modbus-simulator in bin/
+make test               # Run all tests (unit + integration)
+make test-unit          # Run unit tests only
+make test-integration   # Run integration tests only
+make test-coverage      # Run unit tests with coverage report
+make clean              # Remove bin/ and coverage files
+make help               # Show all available targets
+```
+
+### Direct Go Commands
+
 **Build**:
 ```bash
-go build -v ./...
+go build -v ./...                              # Build all packages
+go build -o bin/modbus-cli ./cmd/cli          # Build CLI tool
+go build -o bin/modbus-simulator ./cmd/simulator  # Build simulator
 ```
 
 **Run unit tests**:
@@ -33,7 +51,7 @@ go test -v -race -coverprofile=coverage.txt -covermode=atomic .
 golangci-lint run --timeout=5m
 ```
 
-**Run integration tests** (requires external Modbus simulator like diagslave):
+**Run integration tests** (uses built-in simulator - no external dependencies required):
 ```bash
 go test -v ./integration
 # Or run specific protocol tests:
@@ -46,6 +64,89 @@ go test -v -run ASCII ./integration
 ```bash
 go mod tidy
 git diff --exit-code go.mod go.sum
+```
+
+## Command-Line Tools
+
+### Modbus CLI (`cmd/cli/main.go`)
+
+A command-line interface for performing Modbus operations. Built with `urfave/cli/v2`.
+
+**Supported commands**:
+- `read-coils` - Read Coils (FC 1)
+- `read-discrete-inputs` - Read Discrete Inputs (FC 2)
+- `read-holding-registers` - Read Holding Registers (FC 3)
+- `read-input-registers` - Read Input Registers (FC 4)
+- `read-fifo` - Read FIFO Queue (FC 24)
+
+**Global options**:
+- `-p, --protocol` - Protocol: tcp, rtu, or ascii (default: tcp)
+- `-a, --address` - Address (e.g., localhost:502 or /dev/ttyUSB0)
+- `-s, --slave-id` - Slave ID (default: 1)
+- `-t, --timeout` - Timeout duration (default: 5s)
+- `--baud` - Baud rate for serial (default: 19200)
+- `--parity` - Parity: N, E, or O (default: E)
+- `--stop-bits` - Stop bits: 1 or 2 (default: 1)
+
+**Example usage**:
+```bash
+# Read holding registers via TCP
+./bin/modbus-cli -p tcp -a localhost:502 read-holding-registers --start 0 --count 10
+
+# Read coils via RTU with custom serial settings
+./bin/modbus-cli -p rtu -a /dev/ttyUSB0 --baud 9600 --parity N read-coils --start 0 --count 8
+
+# Read input registers with hex output
+./bin/modbus-cli -p tcp -a localhost:502 read-input-registers --start 100 --count 5 --format hex
+```
+
+### Modbus Simulator (`cmd/simulator/main.go`)
+
+A standalone Modbus protocol simulator for testing. Uses the `internal/simulator/` package.
+
+**Features**:
+- Supports TCP, RTU, and ASCII modes
+- Configurable via JSON files for initial register values
+- Automatic PTY (pseudo-terminal) support for serial modes
+- Named registers for readability (e.g., "battery_voltage")
+- Implements all standard Modbus function codes
+
+**Command-line options**:
+- `-mode` - Server mode: tcp, rtu, or ascii (default: tcp)
+- `-addr` - TCP address (e.g., localhost:502) or serial port
+- `-slave-id` - Slave ID for serial modes (default: 1)
+- `-baud` - Baud rate for serial (default: 19200)
+- `-parity` - Parity: N, E, or O (default: E)
+- `-stop-bits` - Stop bits: 1 or 2 (default: 1)
+- `-config` - Path to JSON configuration file
+
+**Example usage**:
+```bash
+# Run TCP simulator on port 5020
+./bin/modbus-simulator -mode tcp -addr localhost:5020
+
+# Run RTU simulator with configuration
+./bin/modbus-simulator -mode rtu -slave-id 1 -baud 19200 -config testdata/simulator/solar-charger.json
+
+# Run ASCII simulator on a specific serial port
+./bin/modbus-simulator -mode ascii -addr /dev/ttyUSB0 -slave-id 1
+```
+
+**Configuration format** (`testdata/simulator/solar-charger.json`):
+```json
+{
+  "holdingRegisters": {
+    "0": {"name": "pv_voltage", "value": 245},
+    "1": {"name": "pv_current", "value": 82},
+    "10": {"name": "battery_voltage", "value": 132}
+  },
+  "inputRegisters": {
+    "0": {"name": "load_power", "value": 150}
+  },
+  "coils": {
+    "0": {"name": "manual_control", "value": false}
+  }
+}
 ```
 
 ## Architecture
@@ -117,13 +218,106 @@ All three share the same `Client` interface (defined in api.go) with methods for
 ## Testing
 
 - **Unit tests**: Located in root directory (`*_test.go`), test individual components without external dependencies
-- **Integration tests**: Located in `integration/` subdirectory, require a Modbus simulator (e.g., diagslave)
-  - Use `socat` to create virtual serial port pairs for RTU/ASCII testing
-  - See `integration/README.md` for setup instructions
+- **Integration tests**: Located in `integration/` subdirectory, **fully automated with built-in simulator**
+  - No external dependencies required (no diagslave, socat, etc.)
+  - Uses `internal/simulator/` package for all protocol testing
+  - TCP tests spin up a local TCP server
+  - RTU/ASCII tests use PTY (pseudo-terminal) pairs for virtual serial ports
+  - See `integration/README.md` for details on test architecture
+
+## Project Structure
+
+```
+.
+├── cmd/
+│   ├── cli/           # Modbus CLI tool
+│   └── simulator/     # Modbus simulator tool
+├── internal/
+│   ├── simulator/     # Simulator implementation (TCP, RTU, ASCII servers)
+│   └── testutil/      # Test utilities
+├── integration/       # Integration tests (fully automated)
+├── testdata/
+│   └── simulator/     # Example simulator configurations (e.g., solar-charger.json)
+├── bin/               # Built executables (created by make)
+├── *.go               # Core library files (modbus.go, client.go, tcpclient.go, etc.)
+├── *_test.go          # Unit tests
+├── Makefile           # Build and test targets
+├── .goreleaser.yaml   # Release configuration for multi-platform builds
+└── .github/workflows/ # CI/CD pipelines
+```
+
+## Dependencies
+
+- **go.bug.st/serial** (v1.6.4) - Cross-platform serial port access
+- **github.com/urfave/cli/v2** (v2.27.7) - CLI framework for modbus-cli
+- **github.com/creack/pty** (v1.1.24) - PTY support for serial emulation in tests
+
+## CI/CD
+
+**Continuous Integration** (`.github/workflows/ci.yml`):
+- Runs on every push and pull request
+- Tests on Ubuntu and macOS
+- Tests against Go 1.22, 1.23, 1.24, 1.25
+- Runs unit tests with race detector
+- Runs integration tests
+- Runs golangci-lint v2.5
+- Verifies `go.mod` is tidy
+
+**Release Pipeline** (`.github/workflows/release.yml`):
+- Triggered on version tags (v*)
+- Uses GoReleaser v2 for multi-platform builds
+- Builds for Linux and macOS (amd64 and arm64)
+- Produces `modbus-cli` and `modbus-simulator` binaries
+- Creates GitHub releases with archives
 
 ## Go Version
 
 Minimum Go version: 1.22 (specified in go.mod)
 CI tests against Go 1.22, 1.23, 1.24, 1.25 on Ubuntu and macOS
 
+## Development Best Practices
+
 - Always run golangci-lint on new code
+- Run tests with race detector: `go test -v -race ./...`
+- Use `make test` to run both unit and integration tests before committing
+- Keep `go.mod` tidy: `go mod tidy && git diff --exit-code go.mod go.sum`
+
+## Simulator Implementation (`internal/simulator/`)
+
+The simulator package provides a complete Modbus server implementation for testing purposes:
+
+### Components
+
+- **handler.go** (~15 KB) - Core request handler implementing all Modbus function codes:
+  - Validates slave IDs, addresses, and quantities
+  - Returns proper Modbus exceptions for invalid requests
+  - Supports all 11 standard Modbus functions
+
+- **datastore.go** - In-memory storage for Modbus data:
+  - Coils, discrete inputs, holding registers, input registers
+  - Support for named registers (e.g., "battery_voltage": 132)
+  - JSON configuration loading
+  - Thread-safe access with mutexes
+
+- **tcp_server.go** - TCP/IP server with MBAP header handling
+- **rtu_server.go** - RTU server with CRC-16 checksums and frame timing
+- **ascii_server.go** - ASCII server with LRC checksums and CRLF terminators
+- **pty.go** - Pseudo-terminal creation for serial emulation in tests
+- **crc.go / lrc.go** - Checksum utilities
+
+### Usage in Tests
+
+Integration tests use the simulator programmatically:
+
+```go
+// TCP example
+server := simulator.NewTCPServer(":0", 1)
+go server.Start()
+defer server.Stop()
+
+// RTU example (with PTY)
+ptyPath, err := simulator.CreatePTY()
+server := simulator.NewRTUServer(ptyPath, 1, 19200, "E", 1)
+```
+
+This approach eliminates the need for external Modbus simulators like diagslave.
