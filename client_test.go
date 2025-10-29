@@ -64,13 +64,13 @@ func (m *mockTransporter) Send(ctx context.Context, aduRequest []byte) ([]byte, 
 // TestReadCoils tests the ReadCoils function
 func TestReadCoils(t *testing.T) {
 	tests := []struct {
-		name      string
-		address   uint16
-		quantity  uint16
-		response  []byte
-		wantErr   bool
-		wantData  []byte
-		errType   error
+		name     string
+		address  uint16
+		quantity uint16
+		response []byte
+		wantErr  bool
+		wantData []byte
+		errType  error
 	}{
 		{
 			name:     "valid read 8 coils",
@@ -126,7 +126,7 @@ func TestReadCoils(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -189,7 +189,7 @@ func TestReadDiscreteInputs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					// Return valid response with byte count matching
 					byteCount := (tt.quantity + 7) / 8
 					resp := make([]byte, byteCount+2)
@@ -259,7 +259,7 @@ func TestReadHoldingRegisters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					// Return valid response
 					byteCount := tt.quantity * 2
 					resp := make([]byte, byteCount+2)
@@ -315,7 +315,7 @@ func TestReadInputRegisters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					byteCount := tt.quantity * 2
 					resp := make([]byte, byteCount+2)
 					resp[0] = 0x04
@@ -381,7 +381,7 @@ func TestWriteSingleCoil(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -435,7 +435,7 @@ func TestWriteSingleRegister(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -500,7 +500,7 @@ func TestWriteMultipleCoils(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					// Return valid response echoing address and quantity
 					resp := make([]byte, 5)
 					resp[0] = 0x0F // function code
@@ -567,7 +567,7 @@ func TestWriteMultipleRegisters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					resp := make([]byte, 5)
 					resp[0] = 0x10
 					binary.BigEndian.PutUint16(resp[1:], 0)
@@ -629,7 +629,7 @@ func TestMaskWriteRegister(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -712,7 +712,7 @@ func TestReadWriteMultipleRegisters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					byteCount := tt.readQuantity * 2
 					resp := make([]byte, byteCount+2)
 					resp[0] = 0x17
@@ -745,8 +745,8 @@ func TestReadFIFOQueue(t *testing.T) {
 		wantLen  int
 	}{
 		{
-			name:     "valid FIFO read",
-			address:  100,
+			name:    "valid FIFO read",
+			address: 100,
 			// Response.Data includes: byte count (2) + FIFO count (2) + data (4) = 8 bytes total
 			// Byte count field value should be len(response.Data) - 1 = 7
 			response: []byte{0x18, 0x00, 0x07, 0x00, 0x02, 0x01, 0x02, 0x03, 0x04},
@@ -754,8 +754,8 @@ func TestReadFIFOQueue(t *testing.T) {
 			wantLen:  4,
 		},
 		{
-			name:     "empty FIFO",
-			address:  100,
+			name:    "empty FIFO",
+			address: 100,
 			// Response.Data includes: byte count (2) + FIFO count (2) = 4 bytes total
 			// Byte count field value should be 3
 			response: []byte{0x18, 0x00, 0x03, 0x00, 0x00},
@@ -763,8 +763,8 @@ func TestReadFIFOQueue(t *testing.T) {
 			wantLen:  0,
 		},
 		{
-			name:     "FIFO count max valid",
-			address:  100,
+			name:    "FIFO count max valid",
+			address: 100,
 			response: func() []byte {
 				// Response.Data = byte count (2) + FIFO count (2) + data (62) = 66 bytes
 				// Byte count field value should be 65
@@ -782,7 +782,7 @@ func TestReadFIFOQueue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}

@@ -43,7 +43,7 @@ func TestReadCoilsInvalidResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -106,7 +106,7 @@ func TestWriteSingleCoilInvalidResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -164,7 +164,7 @@ func TestWriteSingleRegisterInvalidResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -218,7 +218,7 @@ func TestWriteMultipleCoilsInvalidResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -272,7 +272,7 @@ func TestWriteMultipleRegistersInvalidResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -338,7 +338,7 @@ func TestMaskWriteRegisterInvalidResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -379,7 +379,7 @@ func TestReadWriteMultipleRegistersInvalidResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -435,7 +435,7 @@ func TestReadFIFOQueueInvalidResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return tt.response, nil
 				},
 			}
@@ -563,15 +563,15 @@ func TestModbusError(t *testing.T) {
 // TestResponseError tests the responseError helper function
 func TestResponseError(t *testing.T) {
 	tests := []struct {
-		name          string
-		response      *ProtocolDataUnit
-		wantFuncCode  byte
-		wantExcCode   byte
+		name         string
+		response     *ProtocolDataUnit
+		wantFuncCode byte
+		wantExcCode  byte
 	}{
 		{
 			name: "exception with data",
 			response: &ProtocolDataUnit{
-				FunctionCode: 0x81, // 0x80 | 0x01
+				FunctionCode: 0x81,         // 0x80 | 0x01
 				Data:         []byte{0x02}, // exception code
 			},
 			wantFuncCode: 0x81,
@@ -640,7 +640,7 @@ func TestClientExceptionHandling(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					// Return exception response
 					return []byte{tt.responseFunc, tt.exceptionCode}, nil
 				},
@@ -679,11 +679,11 @@ func TestClientExceptionHandling(t *testing.T) {
 // TestPackagerErrors tests that packager errors are properly propagated
 func TestPackagerErrors(t *testing.T) {
 	tests := []struct {
-		name        string
-		encodeErr   error
-		decodeErr   error
-		verifyErr   error
-		wantErr     bool
+		name      string
+		encodeErr error
+		decodeErr error
+		verifyErr error
+		wantErr   bool
 	}{
 		{
 			name:      "encode error",
@@ -705,7 +705,7 @@ func TestPackagerErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockT := &mockTransporter{
-				sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+				sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 					return []byte{0x03, 0x04, 0x00, 0x0A, 0x00, 0x0B}, nil
 				},
 			}
@@ -725,7 +725,7 @@ func TestPackagerErrors(t *testing.T) {
 						Data:         adu[1:],
 					}, nil
 				},
-				verifyFunc: func(req, resp []byte) error {
+				verifyFunc: func(_, _ []byte) error {
 					return tt.verifyErr
 				},
 			}
@@ -748,7 +748,7 @@ func TestTransporterErrors(t *testing.T) {
 	testErr := fmt.Errorf("transport failed")
 
 	mockT := &mockTransporter{
-		sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+		sendFunc: func(_ context.Context, _ []byte) ([]byte, error) {
 			return nil, testErr
 		},
 	}
@@ -773,7 +773,7 @@ func TestClientContextCancellation(t *testing.T) {
 	cancel() // Cancel immediately
 
 	mockT := &mockTransporter{
-		sendFunc: func(ctx context.Context, req []byte) ([]byte, error) {
+		sendFunc: func(ctx context.Context, _ []byte) ([]byte, error) {
 			return nil, ctx.Err()
 		},
 	}
