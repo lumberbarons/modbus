@@ -65,8 +65,18 @@ jobs:
       with:
         go-version: '1.22'
 
-    - name: Build
-      run: go build -v ./...
+    - name: Build modbus library
+      run: go build -v .
+
+    - name: Build cli binary
+      run: |
+        go build -o bin/modbus-cli ./cmd/cli
+        ./bin/modbus-cli --help
+
+    - name: Build simulator binary
+      run: |
+        go build -o bin/modbus-simulator ./cmd/simulator
+        ./bin/modbus-simulator --help
 
     - name: Verify go.mod is tidy
       run: |
