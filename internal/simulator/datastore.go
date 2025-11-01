@@ -38,6 +38,9 @@ type DataStore struct {
 
 	// Delay and timeout configuration
 	delayConfig *DelayConfigSet
+
+	// Random number generator for delay/timeout simulation
+	rng *rand.Rand
 }
 
 // RegisterConfig represents a named register with an initial value.
@@ -118,6 +121,7 @@ func NewDataStore(config *DataStoreConfig) *DataStore {
 		discreteInputNames: make(map[uint16]string),
 		holdingRegNames:    make(map[uint16]string),
 		inputRegNames:      make(map[uint16]string),
+		rng:                rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
 	}
 
 	if config != nil {
@@ -396,7 +400,7 @@ func (ds *DataStore) ApplyDelayWithOptions(regType RegisterType, address uint16,
 
 	// Check timeout probability first (unless disabled)
 	if !disableTimeout && cfg.TimeoutProbability > 0 {
-		if rand.Float64() < cfg.TimeoutProbability {
+		if ds.rng.Float64() < cfg.TimeoutProbability {
 			// Simulate timeout - return false to indicate no response should be sent
 			return false
 		}
@@ -416,7 +420,7 @@ func (ds *DataStore) ApplyDelayWithOptions(regType RegisterType, address uint16,
 			// Calculate jitter range: delay * (jitter / 100)
 			jitterRange := float64(baseDuration) * (float64(cfg.Jitter) / 100.0)
 			// Random jitter between -jitterRange and +jitterRange
-			jitterAmount := (rand.Float64()*2 - 1) * jitterRange
+			jitterAmount := (ds.rng.Float64()*2 - 1) * jitterRange
 			delay = baseDuration + time.Duration(jitterAmount)
 
 			// Ensure delay doesn't go negative
