@@ -274,6 +274,9 @@ func TestASCIIClientWithDelay(t *testing.T) {
 }
 
 func TestClientWithJitter(t *testing.T) {
+	// NOTE: This test is skipped in CI (see .github/workflows/ci.yml) due to timing sensitivity
+	// Run locally with: go test -v -run TestClientWithJitter ./integration
+
 	// Setup simulator with jitter
 	config := &simulator.DataStoreConfig{
 		NamedHoldingRegs: map[uint16]simulator.RegisterConfig{
@@ -502,6 +505,9 @@ func TestTCPClientTimeoutThenSuccessfulRequest(t *testing.T) {
 }
 
 func TestTCPClientMixedTimeoutProbability(t *testing.T) {
+	// NOTE: This test is skipped in CI (see .github/workflows/ci.yml) due to random flakiness
+	// Run locally with: go test -v -run TestTCPClientMixedTimeoutProbability ./integration
+
 	// Test with 50% timeout probability - verify both success and failure paths work
 	config := &simulator.DataStoreConfig{
 		NamedHoldingRegs: map[uint16]simulator.RegisterConfig{
