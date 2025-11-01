@@ -1,4 +1,4 @@
-.PHONY: all cli simulator clean test test-unit test-integration test-coverage lint help
+.PHONY: all cli simulator cli-linux-arm64 clean test test-unit test-integration test-coverage lint help
 
 BINDIR := bin
 COVERAGE_FILE := coverage.txt
@@ -12,6 +12,10 @@ cli:
 simulator:
 	@mkdir -p $(BINDIR)
 	go build -o $(BINDIR)/modbus-simulator ./cmd/simulator
+
+cli-linux-arm64:
+	@mkdir -p $(BINDIR)
+	GOOS=linux GOARCH=arm64 go build -o $(BINDIR)/modbus-cli-linux-arm64 ./cmd/cli
 
 clean:
 	rm -rf $(BINDIR)
@@ -46,6 +50,7 @@ help:
 	@echo "  all              - Build both CLI and simulator (default)"
 	@echo "  cli              - Build modbus-cli in bin/"
 	@echo "  simulator        - Build modbus-simulator in bin/"
+	@echo "  cli-linux-arm64  - Build modbus-cli for Linux ARM64 in bin/"
 	@echo "  test             - Run all tests (unit + integration)"
 	@echo "  test-unit        - Run unit tests only"
 	@echo "  test-integration - Run integration tests only"
