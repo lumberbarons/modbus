@@ -85,6 +85,40 @@ func runSimulator(c *cli.Context) error {
 	// Create data store
 	ds := simulator.NewDataStore(config)
 
+	// Warn if timeout configuration is set for RTU/ASCII modes
+	if config != nil && config.Delays != nil && (mode == "rtu" || mode == "ascii") {
+		hasTimeouts := false
+		if config.Delays.Global != nil {
+			for _, cfg := range config.Delays.Global {
+				if cfg.TimeoutProbability > 0 {
+					hasTimeouts = true
+					break
+				}
+			}
+		}
+		if !hasTimeouts {
+			for _, delayMap := range []map[uint16]simulator.DelayConfig{
+				config.Delays.Coils,
+				config.Delays.DiscreteInputs,
+				config.Delays.HoldingRegs,
+				config.Delays.InputRegs,
+			} {
+				for _, cfg := range delayMap {
+					if cfg.TimeoutProbability > 0 {
+						hasTimeouts = true
+						break
+					}
+				}
+				if hasTimeouts {
+					break
+				}
+			}
+		}
+		if hasTimeouts {
+			log.Printf("WARNING: timeoutProbability configured but will be ignored in %s mode (only works with TCP)", mode)
+		}
+	}
+
 	// Create and start server based on mode
 	var server interface {
 		Start() error

@@ -110,6 +110,7 @@ A standalone Modbus protocol simulator for testing. Uses the `internal/simulator
 - Automatic PTY (pseudo-terminal) support for serial modes
 - Named registers for readability (e.g., "battery_voltage")
 - Implements all standard Modbus function codes
+- Configurable delays and timeouts for fault tolerance testing
 
 **Command-line options**:
 - `-mode` - Server mode: tcp, rtu, or ascii (default: tcp)
@@ -135,19 +136,52 @@ A standalone Modbus protocol simulator for testing. Uses the `internal/simulator
 **Configuration format** (`testdata/simulator/solar-charger.json`):
 ```json
 {
-  "holdingRegisters": {
+  "NamedHoldingRegs": {
     "0": {"name": "pv_voltage", "value": 245},
     "1": {"name": "pv_current", "value": 82},
     "10": {"name": "battery_voltage", "value": 132}
   },
-  "inputRegisters": {
+  "NamedInputRegs": {
     "0": {"name": "load_power", "value": 150}
   },
-  "coils": {
+  "NamedCoils": {
     "0": {"name": "manual_control", "value": false}
   }
 }
 ```
+
+**Delay and Timeout Configuration**:
+
+The simulator supports configurable delays and timeouts for testing fault tolerance. Add a `delays` section to your configuration:
+
+```json
+{
+  "NamedHoldingRegs": {
+    "100": {"name": "SLOW_REGISTER", "value": 1234}
+  },
+  "delays": {
+    "global": {
+      "holdingRegs": {"delay": "50ms", "jitter": 10}
+    },
+    "holdingRegs": {
+      "100": {"delay": "500ms", "jitter": 20, "timeoutProbability": 0.3}
+    }
+  }
+}
+```
+
+**Delay configuration fields**:
+- `delay` - Base delay duration (e.g., "100ms", "1s", "500ms") - works with all protocols
+- `jitter` - Percentage of random variance (0-100). E.g., 20 = ±20% random variance - works with all protocols
+- `timeoutProbability` - Probability (0.0-1.0) of not responding. E.g., 0.3 = 30% timeout rate - **TCP only** (RTU/ASCII don't support timeout simulation)
+
+**Configuration hierarchy**:
+1. **Global defaults** - Applied to all registers of a type unless overridden
+2. **Per-address overrides** - Override global defaults for specific addresses
+
+Example: With the config above, reading holding register 100 will have a 500ms delay (±20% jitter) and a 30% chance of timeout, while other holding registers will have a 50ms delay (±10% jitter).
+
+See `testdata/simulator/delays-example.json` and `testdata/simulator/README.md` for more examples.
 
 ## Architecture
 
