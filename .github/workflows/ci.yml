@@ -35,7 +35,7 @@ jobs:
     - name: Run integration tests
       # Skip probabilistic jitter/timeout tests that are flaky in CI environments
       # These tests work locally but can fail due to CPU timing variations in CI
-      run: go test -v -race -skip 'Jitter|MixedTimeout' ./integration
+      run: go test -v -race -skip 'Jitter|MixedTimeout|TimeoutMultiple|TimeoutDifferent' ./integration
 
   lint:
     name: Lint

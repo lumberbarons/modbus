@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"time"
 )
 
@@ -112,6 +111,16 @@ type rtuSerialTransporter struct {
 	serialPort
 }
 
+// Send transmits an RTU request and receives the response.
+// This implementation uses Read() in a loop with context checks between iterations,
+// rather than io.ReadFull(). This approach:
+//   - Prevents indefinite hangs when devices send incomplete responses
+//   - Allows context cancellation to be detected between read operations
+//   - Improves reliability on systems where serial port timeouts are not well-supported
+//
+// Note: Individual Read() calls may still block if the underlying device/driver
+// doesn't support read timeouts (e.g., PTYs in tests). However, context is checked
+// between reads, providing better timeout behavior than the previous io.ReadFull() approach.
 func (mb *rtuSerialTransporter) Send(ctx context.Context, aduRequest []byte) (aduResponse []byte, err error) {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
@@ -157,36 +166,59 @@ func (mb *rtuSerialTransporter) Send(ctx context.Context, aduRequest []byte) (ad
 	}
 
 	var n int
-	var n1 int
 	var data [rtuMaxSize]byte
-	// We first read the minimum length and then read either the full package
-	// or the error package, depending on the error status (byte 2 of the response)
-	n, err = io.ReadAtLeast(mb.port, data[:], rtuMinSize)
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
-	}
-	// if the function is correct
-	switch data[1] {
-	case function:
-		// we read the rest of the bytes
-		if n < bytesToRead {
-			if bytesToRead > rtuMinSize && bytesToRead <= rtuMaxSize {
-				if bytesToRead > n {
-					n1, err = io.ReadFull(mb.port, data[n:bytesToRead])
-					n += n1
-				}
-			}
+
+	// Read minimum length with context checks between reads.
+	// We use Read() in a loop instead of ReadAtLeast() to allow
+	// context cancellation during the read operation.
+	for n < rtuMinSize {
+		// Check context before each read iteration
+		if err = ctx.Err(); err != nil {
+			return nil, fmt.Errorf("context cancelled during read: %w", err)
 		}
-	case functionFail:
-		// for error we need to read 5 bytes
-		if n < rtuExceptionSize {
-			n1, err = io.ReadFull(mb.port, data[n:rtuExceptionSize])
+
+		var nn int
+		nn, err = mb.port.Read(data[n:])
+		n += nn
+		if err != nil {
+			return nil, fmt.Errorf("reading response: %w", err)
 		}
-		n += n1
+		if nn == 0 && n < rtuMinSize {
+			// No more data available and we haven't reached minimum length
+			return nil, fmt.Errorf("reading response: unexpected EOF, got %d bytes, expected at least %d", n, rtuMinSize)
+		}
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
+	// Determine how many total bytes we need based on response type
+	var targetLength int
+	switch data[1] {
+	case function:
+		targetLength = bytesToRead
+	case functionFail:
+		targetLength = rtuExceptionSize
+	default:
+		targetLength = n // Unknown function, use what we have
+	}
+
+	// Read remaining bytes with context checks between reads
+	if targetLength > rtuMinSize && targetLength <= rtuMaxSize {
+		for n < targetLength {
+			// Check context before each read iteration
+			if err = ctx.Err(); err != nil {
+				return nil, fmt.Errorf("context cancelled during read: %w", err)
+			}
+
+			var nn int
+			nn, err = mb.port.Read(data[n:targetLength])
+			n += nn
+			if err != nil {
+				return nil, fmt.Errorf("reading response body: %w", err)
+			}
+			if nn == 0 {
+				// No more data available and we haven't reached target length
+				return nil, fmt.Errorf("reading response body: unexpected EOF, got %d bytes, expected %d", n, targetLength)
+			}
+		}
 	}
 	aduResponse = data[:n]
 	mb.logf("modbus: received % x\n", aduResponse)

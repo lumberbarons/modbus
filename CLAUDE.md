@@ -233,7 +233,7 @@ All three share the same `Client` interface (defined in api.go) with methods for
 ### Thread Safety
 
 - TCP and ASCII transporters use mutexes to protect connection state
-- RTU transporter does not lock in Send() - ensure external synchronization if sharing handlers
+- RTU transporter uses mutexes to protect connection state
 - Transaction IDs (TCP) use atomic operations for thread-safe increments
 
 ### Error Handling
@@ -241,13 +241,18 @@ All three share the same `Client` interface (defined in api.go) with methods for
 - Modbus exceptions are returned as `*ModbusError` with function and exception codes
 - Validation errors (quantity limits, value ranges) return standard Go errors
 - Response validation checks data lengths, addresses, and checksums
+- Context cancellation is checked between read operations, preventing indefinite hangs
 
 ### Serial Communication
 
-- **RTU**: Calculates frame delays based on baud rate (3.5 character times between frames)
-- **ASCII**: Reads until CRLF terminator or max buffer size
+- **RTU**:
+  - Calculates frame delays based on baud rate (3.5 character times between frames)
+  - Uses `Read()` in a loop with context checks between iterations (prevents indefinite hangs on partial responses)
+  - Improved timeout handling compared to blocking `io.ReadFull()` approach
+- **ASCII**: Reads until CRLF terminator or max buffer size with context checks in read loop
 - Default serial config: 19200 baud, 8 data bits, 1 stop bit, even parity
 - Timeout defaults to 5 seconds for both RTU and ASCII
+- Context-based timeouts provide more reliable cancellation than serial port timeouts alone
 
 ## Testing
 
