@@ -534,7 +534,7 @@ func TestTCPClientMixedTimeoutProbability(t *testing.T) {
 	// Try multiple requests and count successes/failures
 	successCount := 0
 	timeoutCount := 0
-	iterations := 20
+	iterations := 50
 
 	for i := 0; i < iterations; i++ {
 		_, err := client.ReadHoldingRegisters(ctx, 100, 1)
@@ -548,12 +548,13 @@ func TestTCPClientMixedTimeoutProbability(t *testing.T) {
 	t.Logf("Results: %d successes, %d timeouts out of %d requests", successCount, timeoutCount, iterations)
 
 	// With 50% probability, we should see both successes and failures
-	// Allow wide range for statistical variance (at least 3 of each in 20 tries)
-	if successCount < 3 {
-		t.Errorf("expected at least 3 successes with 50%% probability, got %d", successCount)
+	// With 50 iterations, expect roughly 25 ±15 (allow for 10-40 range = ~5σ)
+	// This gives us >99.99% confidence the test won't randomly fail
+	if successCount < 10 {
+		t.Errorf("expected at least 10 successes with 50%% probability over %d tries, got %d", iterations, successCount)
 	}
-	if timeoutCount < 3 {
-		t.Errorf("expected at least 3 timeouts with 50%% probability, got %d", timeoutCount)
+	if timeoutCount < 10 {
+		t.Errorf("expected at least 10 timeouts with 50%% probability over %d tries, got %d", iterations, timeoutCount)
 	}
 }
 
