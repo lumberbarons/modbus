@@ -1,0 +1,67 @@
+{
+  "NamedHoldingRegs": {
+    "100": {
+      "name": "FAST_REGISTER",
+      "value": 1000
+    },
+    "200": {
+      "name": "SLOW_REGISTER",
+      "value": 2000
+    },
+    "300": {
+      "name": "FLAKY_REGISTER",
+      "value": 3000
+    },
+    "400": {
+      "name": "NORMAL_REGISTER",
+      "value": 4000
+    }
+  },
+  "NamedInputRegs": {
+    "500": {
+      "name": "SENSOR_READING",
+      "value": 5000
+    }
+  },
+  "NamedCoils": {
+    "0": {
+      "name": "SLOW_COIL",
+      "value": false
+    },
+    "1": {
+      "name": "NORMAL_COIL",
+      "value": true
+    }
+  },
+  "delays": {
+    "global": {
+      "holdingRegs": {
+        "delay": "50ms",
+        "jitter": 10
+      }
+    },
+    "holdingRegs": {
+      "200": {
+        "delay": "500ms",
+        "jitter": 20
+      },
+      "300": {
+        "delay": "100ms",
+        "jitter": 0,
+        "timeoutProbability": 0.3
+      }
+    },
+    "inputRegs": {
+      "500": {
+        "delay": "200ms",
+        "jitter": 50
+      }
+    },
+    "coils": {
+      "0": {
+        "delay": "1s",
+        "jitter": 10
+      }
+    }
+  }
+}

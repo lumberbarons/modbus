@@ -6,7 +6,9 @@ package simulator
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"sync"
+	"time"
 )
 
 const (
@@ -33,6 +35,12 @@ type DataStore struct {
 	discreteInputNames map[uint16]string
 	holdingRegNames    map[uint16]string
 	inputRegNames      map[uint16]string
+
+	// Delay and timeout configuration
+	delayConfig *DelayConfigSet
+
+	// Random number generator for delay/timeout simulation
+	rng *rand.Rand
 }
 
 // RegisterConfig represents a named register with an initial value.
@@ -45,6 +53,42 @@ type RegisterConfig struct {
 type CoilConfig struct {
 	Name  string `json:"name"`
 	Value bool   `json:"value"`
+}
+
+// DelayConfig defines delay and timeout behavior for register access.
+type DelayConfig struct {
+	// Base delay to apply before responding (e.g., "100ms", "1s")
+	Delay string `json:"delay,omitempty"`
+	// Jitter percentage (0-100) to add random variance to delay
+	// e.g., 20 means ±20% of Delay
+	Jitter int `json:"jitter,omitempty"`
+	// TimeoutProbability (0.0-1.0) is the probability of not responding at all
+	// e.g., 0.3 means 30% of requests will timeout
+	TimeoutProbability float64 `json:"timeoutProbability,omitempty"`
+}
+
+// RegisterType identifies one of the four Modbus register types.
+type RegisterType string
+
+const (
+	RegisterTypeCoil          RegisterType = "coils"
+	RegisterTypeDiscreteInput RegisterType = "discreteInputs"
+	RegisterTypeHoldingReg    RegisterType = "holdingRegs"
+	RegisterTypeInputReg      RegisterType = "inputRegs"
+)
+
+// DelayConfigSet contains global defaults and per-address delay configurations.
+type DelayConfigSet struct {
+	// Global default delays per register type
+	Global map[RegisterType]DelayConfig `json:"global,omitempty"`
+	// Per-address delay overrides for coils
+	Coils map[uint16]DelayConfig `json:"coils,omitempty"`
+	// Per-address delay overrides for discrete inputs
+	DiscreteInputs map[uint16]DelayConfig `json:"discreteInputs,omitempty"`
+	// Per-address delay overrides for holding registers
+	HoldingRegs map[uint16]DelayConfig `json:"holdingRegs,omitempty"`
+	// Per-address delay overrides for input registers
+	InputRegs map[uint16]DelayConfig `json:"inputRegs,omitempty"`
 }
 
 // DataStoreConfig allows configuring initial values for the data store.
@@ -61,6 +105,9 @@ type DataStoreConfig struct {
 	NamedDiscreteInputs map[uint16]CoilConfig     `json:"NamedDiscreteInputs,omitempty"`
 	NamedHoldingRegs    map[uint16]RegisterConfig `json:"NamedHoldingRegs,omitempty"`
 	NamedInputRegs      map[uint16]RegisterConfig `json:"NamedInputRegs,omitempty"`
+
+	// Delay and timeout configuration
+	Delays *DelayConfigSet `json:"delays,omitempty"`
 }
 
 // NewDataStore creates a new DataStore with optional initial configuration.
@@ -74,9 +121,12 @@ func NewDataStore(config *DataStoreConfig) *DataStore {
 		discreteInputNames: make(map[uint16]string),
 		holdingRegNames:    make(map[uint16]string),
 		inputRegNames:      make(map[uint16]string),
+		rng:                rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
 	}
 
 	if config != nil {
+		// Store delay configuration
+		ds.delayConfig = config.Delays
 		// Legacy format (backward compatibility)
 		for addr, val := range config.Coils {
 			ds.coils[addr] = val
@@ -284,4 +334,105 @@ func (ds *DataStore) GetInputRegName(address uint16) string {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 	return ds.inputRegNames[address]
+}
+
+// GetDelayConfig returns the applicable delay configuration for a given register type and address.
+// It checks for address-specific overrides first, then falls back to global defaults.
+// Returns nil if no delay configuration is found.
+func (ds *DataStore) GetDelayConfig(regType RegisterType, address uint16) *DelayConfig {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	if ds.delayConfig == nil {
+		return nil
+	}
+
+	// Check for address-specific override first
+	var addressConfig *DelayConfig
+	switch regType {
+	case RegisterTypeCoil:
+		if cfg, ok := ds.delayConfig.Coils[address]; ok {
+			addressConfig = &cfg
+		}
+	case RegisterTypeDiscreteInput:
+		if cfg, ok := ds.delayConfig.DiscreteInputs[address]; ok {
+			addressConfig = &cfg
+		}
+	case RegisterTypeHoldingReg:
+		if cfg, ok := ds.delayConfig.HoldingRegs[address]; ok {
+			addressConfig = &cfg
+		}
+	case RegisterTypeInputReg:
+		if cfg, ok := ds.delayConfig.InputRegs[address]; ok {
+			addressConfig = &cfg
+		}
+	}
+
+	// If address-specific config exists, return it
+	if addressConfig != nil {
+		return addressConfig
+	}
+
+	// Fall back to global default for this register type
+	if ds.delayConfig.Global != nil {
+		if cfg, ok := ds.delayConfig.Global[regType]; ok {
+			return &cfg
+		}
+	}
+
+	return nil
+}
+
+// ApplyDelay applies the configured delay and checks for timeout simulation.
+// Returns true if the request should proceed, false if it should timeout (no response).
+func (ds *DataStore) ApplyDelay(regType RegisterType, address uint16) bool {
+	return ds.ApplyDelayWithOptions(regType, address, false)
+}
+
+// ApplyDelayWithOptions applies the configured delay and optionally checks for timeout simulation.
+// Returns true if the request should proceed, false if it should timeout (no response).
+// If disableTimeout is true, timeout probability is ignored (useful for RTU/ASCII where timeouts don't work with PTYs).
+func (ds *DataStore) ApplyDelayWithOptions(regType RegisterType, address uint16, disableTimeout bool) bool {
+	cfg := ds.GetDelayConfig(regType, address)
+	if cfg == nil {
+		return true // No delay configured, proceed normally
+	}
+
+	// Check timeout probability first (unless disabled)
+	if !disableTimeout && cfg.TimeoutProbability > 0 {
+		if ds.rng.Float64() < cfg.TimeoutProbability {
+			// Simulate timeout - return false to indicate no response should be sent
+			return false
+		}
+	}
+
+	// Parse and apply delay if configured
+	if cfg.Delay != "" {
+		baseDuration, err := time.ParseDuration(cfg.Delay)
+		if err != nil {
+			// Invalid duration, skip delay
+			return true
+		}
+
+		// Apply jitter if configured
+		delay := baseDuration
+		if cfg.Jitter > 0 && cfg.Jitter <= 100 {
+			// Calculate jitter range: delay * (jitter / 100)
+			jitterRange := float64(baseDuration) * (float64(cfg.Jitter) / 100.0)
+			// Random jitter between -jitterRange and +jitterRange
+			jitterAmount := (ds.rng.Float64()*2 - 1) * jitterRange
+			delay = baseDuration + time.Duration(jitterAmount)
+
+			// Ensure delay doesn't go negative
+			if delay < 0 {
+				delay = 0
+			}
+		}
+
+		if delay > 0 {
+			time.Sleep(delay)
+		}
+	}
+
+	return true // Proceed with normal response
 }

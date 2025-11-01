@@ -63,7 +63,7 @@ func NewASCIIServer(ds *DataStore, config *ASCIIServerConfig) (*ASCIIServer, err
 	}
 
 	return &ASCIIServer{
-		handler:  NewHandler(ds),
+		handler:  NewHandlerWithOptions(ds, true), // Disable timeout simulation for ASCII (PTYs don't support it)
 		pty:      pty,
 		slaveID:  config.SlaveID,
 		baudRate: config.BaudRate,
@@ -174,6 +174,12 @@ func (s *ASCIIServer) handleRequest() error {
 
 	// Handle the request
 	responsePDU := s.handler.HandleRequest(pdu)
+
+	// Check if timeout simulation (no response)
+	if responsePDU == nil {
+		// Don't send any response - simulate timeout
+		return nil
+	}
 
 	// Encode the response
 	responseADU, err := packager.Encode(responsePDU)

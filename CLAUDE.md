@@ -110,6 +110,7 @@ A standalone Modbus protocol simulator for testing. Uses the `internal/simulator
 - Automatic PTY (pseudo-terminal) support for serial modes
 - Named registers for readability (e.g., "battery_voltage")
 - Implements all standard Modbus function codes
+- Configurable delays and timeouts for fault tolerance testing
 
 **Command-line options**:
 - `-mode` - Server mode: tcp, rtu, or ascii (default: tcp)
@@ -135,19 +136,52 @@ A standalone Modbus protocol simulator for testing. Uses the `internal/simulator
 **Configuration format** (`testdata/simulator/solar-charger.json`):
 ```json
 {
-  "holdingRegisters": {
+  "NamedHoldingRegs": {
     "0": {"name": "pv_voltage", "value": 245},
     "1": {"name": "pv_current", "value": 82},
     "10": {"name": "battery_voltage", "value": 132}
   },
-  "inputRegisters": {
+  "NamedInputRegs": {
     "0": {"name": "load_power", "value": 150}
   },
-  "coils": {
+  "NamedCoils": {
     "0": {"name": "manual_control", "value": false}
   }
 }
 ```
+
+**Delay and Timeout Configuration**:
+
+The simulator supports configurable delays and timeouts for testing fault tolerance. Add a `delays` section to your configuration:
+
+```json
+{
+  "NamedHoldingRegs": {
+    "100": {"name": "SLOW_REGISTER", "value": 1234}
+  },
+  "delays": {
+    "global": {
+      "holdingRegs": {"delay": "50ms", "jitter": 10}
+    },
+    "holdingRegs": {
+      "100": {"delay": "500ms", "jitter": 20, "timeoutProbability": 0.3}
+    }
+  }
+}
+```
+
+**Delay configuration fields**:
+- `delay` - Base delay duration (e.g., "100ms", "1s", "500ms") - works with all protocols
+- `jitter` - Percentage of random variance (0-100). E.g., 20 = ±20% random variance - works with all protocols
+- `timeoutProbability` - Probability (0.0-1.0) of not responding. E.g., 0.3 = 30% timeout rate - **TCP only** (RTU/ASCII don't support timeout simulation)
+
+**Configuration hierarchy**:
+1. **Global defaults** - Applied to all registers of a type unless overridden
+2. **Per-address overrides** - Override global defaults for specific addresses
+
+Example: With the config above, reading holding register 100 will have a 500ms delay (±20% jitter) and a 30% chance of timeout, while other holding registers will have a 50ms delay (±10% jitter).
+
+See `testdata/simulator/delays-example.json` and `testdata/simulator/README.md` for more examples.
 
 ## Architecture
 
@@ -199,7 +233,7 @@ All three share the same `Client` interface (defined in api.go) with methods for
 ### Thread Safety
 
 - TCP and ASCII transporters use mutexes to protect connection state
-- RTU transporter does not lock in Send() - ensure external synchronization if sharing handlers
+- RTU transporter uses mutexes to protect connection state
 - Transaction IDs (TCP) use atomic operations for thread-safe increments
 
 ### Error Handling
@@ -207,13 +241,18 @@ All three share the same `Client` interface (defined in api.go) with methods for
 - Modbus exceptions are returned as `*ModbusError` with function and exception codes
 - Validation errors (quantity limits, value ranges) return standard Go errors
 - Response validation checks data lengths, addresses, and checksums
+- Context cancellation is checked between read operations, preventing indefinite hangs
 
 ### Serial Communication
 
-- **RTU**: Calculates frame delays based on baud rate (3.5 character times between frames)
-- **ASCII**: Reads until CRLF terminator or max buffer size
+- **RTU**:
+  - Calculates frame delays based on baud rate (3.5 character times between frames)
+  - Uses `Read()` in a loop with context checks between iterations (prevents indefinite hangs on partial responses)
+  - Improved timeout handling compared to blocking `io.ReadFull()` approach
+- **ASCII**: Reads until CRLF terminator or max buffer size with context checks in read loop
 - Default serial config: 19200 baud, 8 data bits, 1 stop bit, even parity
 - Timeout defaults to 5 seconds for both RTU and ASCII
+- Context-based timeouts provide more reliable cancellation than serial port timeouts alone
 
 ## Testing
 

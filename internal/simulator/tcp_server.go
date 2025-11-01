@@ -218,6 +218,13 @@ func (s *TCPServer) handleConnection(conn net.Conn) {
 			// Handle the request
 			responsePDU := s.handler.HandleRequest(pdu)
 
+			// Check if timeout simulation (no response)
+			if responsePDU == nil {
+				// Don't send any response - simulate timeout
+				// Keep connection open but don't respond to this request
+				continue
+			}
+
 			// Build response MBAP header
 			responseLength := uint16(1 + 1 + len(responsePDU.Data)) // unit ID + function code + data
 			responseHeader := make([]byte, tcpHeaderSize)

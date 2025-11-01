@@ -15,7 +15,8 @@ import (
 
 // Handler processes Modbus function codes and interacts with the DataStore.
 type Handler struct {
-	dataStore *DataStore
+	dataStore                *DataStore
+	disableTimeoutSimulation bool // For RTU/ASCII where timeout simulation doesn't work
 }
 
 // NewHandler creates a new Handler with the given DataStore.
@@ -23,8 +24,23 @@ func NewHandler(ds *DataStore) *Handler {
 	return &Handler{dataStore: ds}
 }
 
+// NewHandlerWithOptions creates a new Handler with specific options.
+func NewHandlerWithOptions(ds *DataStore, disableTimeoutSimulation bool) *Handler {
+	return &Handler{
+		dataStore:                ds,
+		disableTimeoutSimulation: disableTimeoutSimulation,
+	}
+}
+
 // HandleRequest processes a Modbus PDU request and returns a response PDU.
 func (h *Handler) HandleRequest(req *modbus.ProtocolDataUnit) *modbus.ProtocolDataUnit {
+	// Apply delay/timeout simulation before processing request
+	if shouldTimeout := h.applyRequestDelay(req); !shouldTimeout {
+		// Timeout simulation - return nil to indicate no response
+		log.Printf("TIMEOUT simulation for function code %d", req.FunctionCode)
+		return nil
+	}
+
 	switch req.FunctionCode {
 	case modbus.FuncCodeReadCoils:
 		return h.handleReadCoils(req)
@@ -50,6 +66,48 @@ func (h *Handler) HandleRequest(req *modbus.ProtocolDataUnit) *modbus.ProtocolDa
 		return h.handleReadFIFOQueue(req)
 	default:
 		return newExceptionResponse(req.FunctionCode, modbus.ExceptionCodeIllegalFunction)
+	}
+}
+
+// applyRequestDelay applies configured delay/timeout simulation based on the request.
+// Returns true if request should proceed, false if it should timeout.
+func (h *Handler) applyRequestDelay(req *modbus.ProtocolDataUnit) bool {
+	// Determine register type and address from PDU
+	regType, address := h.getRegisterTypeAndAddress(req)
+	if regType == "" {
+		// Unknown function code or invalid request, proceed normally
+		return true
+	}
+
+	// Apply delay and check for timeout (but skip timeout check if disabled)
+	return h.dataStore.ApplyDelayWithOptions(regType, address, h.disableTimeoutSimulation)
+}
+
+// getRegisterTypeAndAddress extracts the register type and address from a PDU.
+// Returns empty string for register type if the function code is not recognized or data is invalid.
+func (h *Handler) getRegisterTypeAndAddress(req *modbus.ProtocolDataUnit) (regType RegisterType, address uint16) {
+	// Most function codes have address in first 2 bytes
+	if len(req.Data) < 2 {
+		return "", 0
+	}
+
+	address = binary.BigEndian.Uint16(req.Data[0:2])
+
+	switch req.FunctionCode {
+	case modbus.FuncCodeReadCoils, modbus.FuncCodeWriteSingleCoil, modbus.FuncCodeWriteMultipleCoils:
+		return RegisterTypeCoil, address
+	case modbus.FuncCodeReadDiscreteInputs:
+		return RegisterTypeDiscreteInput, address
+	case modbus.FuncCodeReadHoldingRegisters, modbus.FuncCodeWriteSingleRegister,
+		modbus.FuncCodeWriteMultipleRegisters, modbus.FuncCodeMaskWriteRegister:
+		return RegisterTypeHoldingReg, address
+	case modbus.FuncCodeReadInputRegisters:
+		return RegisterTypeInputReg, address
+	case modbus.FuncCodeReadWriteMultipleRegisters:
+		// For read/write, use the read address (first address in PDU)
+		return RegisterTypeHoldingReg, address
+	default:
+		return "", 0
 	}
 }
 
