@@ -156,6 +156,27 @@ func (mb *rtuSerialTransporter) Send(ctx context.Context, aduRequest []byte) (ad
 		return nil, fmt.Errorf("context cancelled: %w", err)
 	}
 
+	// Set read timeout based on context deadline
+	readTimeout := mb.Timeout
+	if deadline, ok := ctx.Deadline(); ok {
+		timeUntilDeadline := time.Until(deadline)
+		if timeUntilDeadline > 0 {
+			readTimeout = timeUntilDeadline
+		} else {
+			return nil, fmt.Errorf("context deadline exceeded before read")
+		}
+	}
+	if err = mb.port.SetReadTimeout(readTimeout); err != nil {
+		return nil, fmt.Errorf("setting read timeout: %w", err)
+	}
+
+	// Restore original timeout after reads complete
+	defer func() {
+		if restoreErr := mb.port.SetReadTimeout(mb.Timeout); restoreErr != nil {
+			mb.logf("modbus: warning - failed to restore read timeout: %v\n", restoreErr)
+		}
+	}()
+
 	var n int
 	var n1 int
 	var data [rtuMaxSize]byte

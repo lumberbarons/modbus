@@ -48,7 +48,7 @@ func main() {
 			&cli.IntFlag{
 				Name:  "baud",
 				Usage: "Baud rate (RTU/ASCII only)",
-				Value: 19200,
+				Value: 115200,
 			},
 			&cli.IntFlag{
 				Name:  "data-bits",
@@ -63,7 +63,7 @@ func main() {
 			&cli.StringFlag{
 				Name:  "parity",
 				Usage: "Parity: none, odd, even (RTU/ASCII only)",
-				Value: "even",
+				Value: "none",
 			},
 		},
 		Commands: []*cli.Command{
